@@ -4,7 +4,6 @@ CREATE DATABASE medical_tracker;
 -- Connect to the database
 \c medical_tracker;
 
--- Create Patients table
 CREATE TABLE IF NOT EXISTS patients (
     id SERIAL PRIMARY KEY,
     first_name VARCHAR(50) NOT NULL,
@@ -20,7 +19,6 @@ CREATE TABLE IF NOT EXISTS patients (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create Activities table
 CREATE TABLE IF NOT EXISTS activities (
     id SERIAL PRIMARY KEY,
     patient_id INT NOT NULL,
@@ -36,4 +34,4 @@ CREATE TABLE IF NOT EXISTS activities (
         FOREIGN KEY (patient_id)
         REFERENCES patients(id)
         ON DELETE CASCADE
-); 
+);

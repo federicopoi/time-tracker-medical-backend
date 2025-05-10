@@ -4,9 +4,8 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 export const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: parseInt(process.env.DB_PORT || '5432'),
+  connectionString: 'postgresql://tracking_time_db_user:1LC8xedIfsrRJcaYaqBoZYyRTFBUgm9V@dpg-d0fg0ds9c44c73bbhbr0-a.oregon-postgres.render.com/tracking_time_db',
+  ssl: {
+    rejectUnauthorized: false
+  }
 }); 
