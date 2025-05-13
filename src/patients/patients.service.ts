@@ -12,7 +12,17 @@ export interface Patient {
   contact_phone_number?: string;
   insurance?: string;
   is_active: boolean;
-  site_name: 'CP Greater San Antonio' | 'CP Intermountain';
+  site_name: string;
+  building?: string;
+  created_at?: Date;
+  medical_records_completed?: boolean;
+  bp_at_goal?: boolean;
+  hospital_visited_since_last_review?: boolean;
+  a1c_at_goal?: boolean;
+  use_benzo?: boolean;
+  fall_since_last_visit?: boolean;
+  use_antipsychotic?: boolean;
+  use_opioids?: boolean;
 }
 
 @Injectable()
@@ -43,8 +53,17 @@ export class PatientsService implements OnModuleInit {
             contact_phone_number VARCHAR(20),
             insurance VARCHAR(100),
             is_active BOOLEAN DEFAULT TRUE,
-            site_name VARCHAR(100) CHECK (site_name IN ('CP Greater San Antonio', 'CP Intermountain')),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            site_name VARCHAR(100) NOT NULL,
+            building VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            medical_records_completed BOOLEAN,
+            bp_at_goal BOOLEAN,
+            hospital_visited_since_last_review BOOLEAN,
+            a1c_at_goal BOOLEAN,
+            use_benzo BOOLEAN,
+            fall_since_last_visit BOOLEAN,
+            use_antipsychotic BOOLEAN,
+            use_opioids BOOLEAN
           );
         `);
         console.log('Patients table created successfully');
@@ -94,15 +113,35 @@ export class PatientsService implements OnModuleInit {
   }
 
   async updatePatient(id: number, patient: Partial<Patient>): Promise<Patient> {
-    const fields = Object.keys(patient);
-    const values = Object.values(patient);
-    const setString = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
-    
-    const result = await pool.query(
-      `UPDATE patients SET ${setString} WHERE id = $${fields.length + 1} RETURNING *`,
-      [...values, id]
-    );
-    return result.rows[0];
+    try {
+      const currentPatient = await this.getPatientById(id);
+      if (!currentPatient) {
+        throw new Error('Patient not found');
+      }
+
+      const fields = Object.keys(patient).filter(key => patient[key] !== undefined);
+      const values = fields.map(field => patient[field]);
+      
+      const setString = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+      
+      const query = `
+        UPDATE patients 
+        SET ${setString} 
+        WHERE id = $${fields.length + 1} 
+        RETURNING *
+      `;
+      
+      const result = await pool.query(query, [...values, id]);
+      
+      if (result.rows.length === 0) {
+        throw new Error('Failed to update patient');
+      }
+      
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error updating patient:', error);
+      throw error;
+    }
   }
 
   async deletePatient(id: number): Promise<void> {
