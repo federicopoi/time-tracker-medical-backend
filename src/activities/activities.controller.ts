@@ -11,7 +11,7 @@ import { AuthGuard } from 'src/auth/auth.guard';
 export class ActivitiesController {
   constructor(private readonly activitiesService: ActivitiesService) {}
 
-@Roles('admin')
+@Roles('user', 'admin')
   @Post()
   async createActivity(@Body() activity: Activity) {
     try {
