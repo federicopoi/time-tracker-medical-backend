@@ -1,10 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, HttpException, HttpStatus, UseGuards } from '@nestjs/common';
 import { ActivitiesService, Activity } from './activities.service';
+import { RolesGuard } from 'src/auth/roles.guard';
+import { Roles } from 'src/auth/roles.decorator';
+import { AuthGuard } from 'src/auth/auth.guard';
 
+
+
+@UseGuards(AuthGuard,RolesGuard)
 @Controller('activities')
 export class ActivitiesController {
   constructor(private readonly activitiesService: ActivitiesService) {}
 
+@Roles('admin')
   @Post()
   async createActivity(@Body() activity: Activity) {
     try {
@@ -13,7 +20,7 @@ export class ActivitiesController {
       throw new HttpException('Failed to create activity', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
-
+@Roles('user','admin')
   @Get()
   async getActivities() {
     try {
