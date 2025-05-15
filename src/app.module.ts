@@ -4,13 +4,15 @@ import { UserModule } from './user/user.module'; // Import the UserModule
 import { PatientsModule } from './patients/patients.module'; // Import the PatientsModule
 import { ActivitiesModule } from './activities/activities.module';
 import { AuthModule } from './auth/auth.module';
+import { SitesModule } from './sites/sites.module';
 
 @Module({
   imports: [
    // Register DatabaseModule here
     UserModule, 
     PatientsModule,      // Register UserModule here
-    ActivitiesModule, AuthModule
+    ActivitiesModule, AuthModule,
+    SitesModule
   ],
   controllers: [],
   providers: [],
