@@ -1,20 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Pool } from 'pg';
+import { pool } from '../config/database.config';
 import { Site, CreateSiteDto, UpdateSiteDto } from './site.interface';
 
 @Injectable()
 export class SitesService {
-  private pool: Pool;
-
-  constructor() {
-    this.pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false
-      }
-    });
-  }
-
   async createSite(createSiteDto: CreateSiteDto): Promise<Site> {
     const { name, address, city, state, zip, is_active = true } = createSiteDto;
     const query = `
@@ -23,25 +12,25 @@ export class SitesService {
       RETURNING *
     `;
     const values = [name, address, city, state, zip, is_active];
-    const result = await this.pool.query(query, values);
+    const result = await pool.query(query, values);
     return result.rows[0];
   }
 
   async getAllSites(): Promise<Site[]> {
     const query = 'SELECT * FROM sites ORDER BY name';
-    const result = await this.pool.query(query);
+    const result = await pool.query(query);
     return result.rows;
   }
 
   async getSiteById(id: number): Promise<Site> {
     const query = 'SELECT * FROM sites WHERE id = $1';
-    const result = await this.pool.query(query, [id]);
+    const result = await pool.query(query, [id]);
     return result.rows[0];
   }
 
   async getSiteByName(name: string): Promise<Site> {
     const query = 'SELECT * FROM sites WHERE name = $1';
-    const result = await this.pool.query(query, [name]);
+    const result = await pool.query(query, [name]);
     return result.rows[0];
   }
 
@@ -68,12 +57,12 @@ export class SitesService {
       RETURNING *
     `;
 
-    const result = await this.pool.query(query, values);
+    const result = await pool.query(query, values);
     return result.rows[0];
   }
 
   async deleteSite(id: number): Promise<void> {
     const query = 'DELETE FROM sites WHERE id = $1';
-    await this.pool.query(query, [id]);
+    await pool.query(query, [id]);
   }
 } 
