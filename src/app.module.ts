@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { UserModule } from './user/user.module'; // Import the UserModule
+import { UserModule } from './user/users.module';
 import { PatientsModule } from './patients/patients.module'; // Import the PatientsModule
 import { ActivitiesModule } from './activities/activities.module';
 import { AuthModule } from './auth/auth.module';

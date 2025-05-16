@@ -17,17 +17,13 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post("login")
-  signIn(@Body() signInDto: { email: string; password: string }) {
+  async signIn(@Body() signInDto: { email: string; password: string }) {
     return this.authService.signIn(signInDto.email, signInDto.password);
   }
 
-//   @UseGuards(AuthGuard)
-//   @Get('profile')
-//   getProfile(@Request() req) {
-//     return req.user;
-//   }
-
-// example of a guard basically saying you need a token to complete this request
-
- 
+  @UseGuards(AuthGuard)
+  @Get('profile')
+  getProfile(@Request() req) {
+    return req.user;
+  }
 }
