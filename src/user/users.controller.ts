@@ -17,7 +17,11 @@ export class UsersController {
         try {
             return await this.usersService.createUser(user);
         } catch (error) {
-            throw new HttpException('Failed to create user', HttpStatus.INTERNAL_SERVER_ERROR);
+            console.error('Error in createUser controller:', error);
+            throw new HttpException(
+                error.message || 'Failed to create user',
+                HttpStatus.INTERNAL_SERVER_ERROR
+            );
         }
     }
 

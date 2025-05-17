@@ -22,7 +22,7 @@ export class UsersService implements OnModuleInit {
         SELECT EXISTS (
           SELECT FROM information_schema.tables 
           WHERE table_schema = 'public'
-          AND table_name = 'patients'
+          AND table_name = 'users'
         )  
       `);
       console.log("Users table exists:", tableCheck.rows[0].exists);
@@ -37,9 +37,9 @@ export class UsersService implements OnModuleInit {
             email VARCHAR(100) NOT NULL UNIQUE,
             password VARCHAR(255) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            role VARCHAR(50) NOT NULL,
+            role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'nurse', 'pharmacist')),
             primarySite VARCHAR(50) NOT NULL,
-            assignedSites VARCHAR[] NOT NULL
+            assignedSites TEXT[] NOT NULL DEFAULT '{}'
           );
         `);
         console.log("Users table created successfully");
@@ -65,10 +65,19 @@ export class UsersService implements OnModuleInit {
   async createUser(user: User): Promise<User> {
     try {
       console.log("Attempting to create user with data", user);
+      
+      // Validate required fields
+      if (!user.first_name || !user.last_name || !user.email || !user.password || !user.role || !user.primarySite || !user.assignedSites) {
+        throw new Error('Missing required fields');
+      }
+
+      // Ensure assignedSites is an array
+      const assignedSites = Array.isArray(user.assignedSites) ? user.assignedSites : [user.assignedSites];
+
       const result = await pool.query(
         `INSERT INTO users (
-          first_name,last_name,email,password,role,primarySite,assignedSites,created_at
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+          first_name, last_name, email, password, role, primarySite, assignedSites
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
         [
           user.first_name,
           user.last_name,
@@ -76,15 +85,21 @@ export class UsersService implements OnModuleInit {
           user.password,
           user.role,
           user.primarySite,
-          user.assignedSites,
-          user.created_at,
+          assignedSites
         ]
       );
+      
       console.log("User created successfully: ", result.rows[0]);
       return result.rows[0];
     } catch (error) {
       console.error("Error creating user:", error);
-      throw error;
+      // Log the specific error details
+      if (error.code === '23505') { // Unique violation
+        throw new Error('Email already exists');
+      } else if (error.code === '22P02') { // Invalid text representation
+        throw new Error('Invalid data format');
+      }
+      throw new Error(`Database error: ${error.message}`);
     }
   }
 
