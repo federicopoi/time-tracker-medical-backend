@@ -8,7 +8,7 @@ export interface User {
   email: string;
   password: string;
   created_at?: Date;
-  role: "Admin" | "Nurse" | "User";
+  role: "admin" | "nurse" | "pharmacist";
   assignedSites:string[];
   primarySite:string;
 }

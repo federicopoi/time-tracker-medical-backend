@@ -3,7 +3,7 @@ export class CreateUserDto {
     last_name:string;
     email:string;
     password:string;
-    role: "Admin"|"Nurse"|"User";
+    role: "admin" | "nurse" | "pharmacist";
     primarySite:string;
     assignedSites:string[];
 
