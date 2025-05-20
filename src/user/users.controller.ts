@@ -6,7 +6,7 @@ import { Roles } from 'src/auth/roles.decorator';
 
 
 
-@UseGuards(AuthGuard, RolesGuard)
+// @UseGuards(AuthGuard, RolesGuard)
 @Controller('users')
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }

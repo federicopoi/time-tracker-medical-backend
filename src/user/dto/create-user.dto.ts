@@ -6,5 +6,4 @@ export class CreateUserDto {
     role: "admin" | "nurse" | "pharmacist";
     primarySite:string;
     assignedSites:string[];
-
 }
