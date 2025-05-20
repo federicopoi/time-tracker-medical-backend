@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { AuthGuard } from "./auth.guard";
 import { AuthService } from "./auth.service";
+import { AuthResponse, SignInDto } from "./types/auth.types";
 
 @Controller("auth")
 export class AuthController {
@@ -17,7 +18,7 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post("login")
-  async signIn(@Body() signInDto: { email: string; password: string }) {
+  async signIn(@Body() signInDto: SignInDto): Promise<AuthResponse> {
     return this.authService.signIn(signInDto.email, signInDto.password);
   }
 
