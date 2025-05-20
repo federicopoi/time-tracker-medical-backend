@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit } from "@nestjs/common";
 import { pool } from "src/config/database.config";
+import * as bcrypt from 'bcrypt';
 
 export interface User {
   id?: number;
@@ -9,12 +10,14 @@ export interface User {
   password: string;
   created_at?: Date;
   role: "admin" | "nurse" | "pharmacist";
-  assignedSites:string[];
-  primarySite:string;
+  assignedsites:string[];
+  primarysite:string;
 }
 
 @Injectable()
 export class UsersService implements OnModuleInit {
+  private readonly SALT_ROUNDS = 10;
+
   async onModuleInit() {
     // gonig to check if table exist
     try {
@@ -38,8 +41,8 @@ export class UsersService implements OnModuleInit {
             password VARCHAR(255) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'nurse', 'pharmacist')),
-            primarySite VARCHAR(50) NOT NULL,
-            assignedSites TEXT[] NOT NULL DEFAULT '{}'
+            primarysite VARCHAR(50) NOT NULL,
+            assignedsites TEXT[] NOT NULL DEFAULT '{}'
           );
         `);
         console.log("Users table created successfully");
@@ -50,53 +53,68 @@ export class UsersService implements OnModuleInit {
   }
 
   // check if user exist for auth 
-  async findOne(email:string,password:string):Promise<User>{
-    try{
+  async findOne(email: string, password: string): Promise<User | null> {
+    try {
       const result = await pool.query(
-        "SELECT * FROM users WHERE email = $1 AND password = $2",[email,password]
+        "SELECT * FROM users WHERE email = $1",
+        [email]
       );
-      return result.rows[0];
-    }catch(error){
-      console.error("Error finding user:",error);
+      
+      const user = result.rows[0];
+      if (!user) {
+        return null;
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return null;
+      }
+
+      return user;
+    } catch (error) {
+      console.error("Error finding user:", error);
       throw error;
     }
   }
 
   async createUser(user: User): Promise<User> {
     try {
-      console.log("Attempting to create user with data", user);
+      console.log("Attempting to create user with data", { ...user, password: '***' });
       
       // Validate required fields
-      if (!user.first_name || !user.last_name || !user.email || !user.password || !user.role || !user.primarySite || !user.assignedSites) {
+      if (!user.first_name || !user.last_name || !user.email || !user.password || !user.role || !user.primarysite || !user.assignedsites) {
         throw new Error('Missing required fields');
       }
 
-      // Ensure assignedSites is an array
-      const assignedSites = Array.isArray(user.assignedSites) ? user.assignedSites : [user.assignedSites];
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(user.password, this.SALT_ROUNDS);
+
+      // Ensure assignedsites is an array
+      const assignedsites = Array.isArray(user.assignedsites) ? user.assignedsites : [user.assignedsites];
 
       const result = await pool.query(
         `INSERT INTO users (
-          first_name, last_name, email, password, role, primarySite, assignedSites
+          first_name, last_name, email, password, role, primarysite, assignedsites
         ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
         [
           user.first_name,
           user.last_name,
           user.email,
-          user.password,
+          hashedPassword,
           user.role,
-          user.primarySite,
-          assignedSites
+          user.primarysite,
+          assignedsites
         ]
       );
       
-      console.log("User created successfully: ", result.rows[0]);
-      return result.rows[0];
+      const createdUser = result.rows[0];
+      console.log("User created successfully: ", { ...createdUser, password: '***' });
+      return createdUser;
     } catch (error) {
       console.error("Error creating user:", error);
-      // Log the specific error details
-      if (error.code === '23505') { // Unique violation
+      if (error.code === '23505') {
         throw new Error('Email already exists');
-      } else if (error.code === '22P02') { // Invalid text representation
+      } else if (error.code === '22P02') {
         throw new Error('Invalid data format');
       }
       throw new Error(`Database error: ${error.message}`);

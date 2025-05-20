@@ -26,6 +26,8 @@
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/schematics": "^11.0.0",
+    "@types/bcrypt": "^5.0.2",
+    "bcrypt": "^6.0.0",
     "dotenv": "^16.5.0",
     "pg": "^8.15.6",
     "reflect-metadata": "^0.2.2",

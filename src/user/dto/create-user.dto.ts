@@ -4,6 +4,6 @@ export class CreateUserDto {
     email:string;
     password:string;
     role: "admin" | "nurse" | "pharmacist";
-    primarySite:string;
-    assignedSites:string[];
+    primarysite:string;
+    assignedsites:string[];
 }
