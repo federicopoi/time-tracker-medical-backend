@@ -17,6 +17,7 @@ export interface Activity {
 @Injectable()
 export class ActivitiesService {
   async createActivity(activity: Activity): Promise<Activity> {
+    console.log('Creating activity with data:', activity);
     const result = await pool.query(
       `INSERT INTO activities (
         patient_id, user_id, activity_type, personnel_initials, pharm_flag,
@@ -34,6 +35,7 @@ export class ActivitiesService {
         activity.duration_minutes,
       ]
     );
+    console.log('Created activity:', result.rows[0]);
     return result.rows[0];
   }
 
@@ -43,7 +45,9 @@ export class ActivitiesService {
   }
 
   async getActivityById(id: number): Promise<Activity> {
+    console.log('Fetching activity with id:', id);
     const result = await pool.query('SELECT * FROM activities WHERE id = $1', [id]);
+    console.log('Fetched activity:', result.rows[0]);
     return result.rows[0];
   }
 
