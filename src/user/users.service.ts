@@ -128,9 +128,17 @@ export class UsersService implements OnModuleInit {
     return result.rows;
   }
 
-  async getUserById(id: number): Promise<User> {
-    const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
-    return result.rows[0];
+  async getUserById(id: number): Promise<User | null> {
+    try {
+      const result = await pool.query(
+        "SELECT id, first_name, last_name, email, role, primarysite, assignedsites FROM users WHERE id = $1",
+        [id]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error("Error finding user:", error);
+      throw error;
+    }
   }
 
   async deleteUser(id: number): Promise<void> {
@@ -167,6 +175,9 @@ export class UsersService implements OnModuleInit {
       throw error;
     }
   }
+
+
+
 
   
 }

@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS patients (
 CREATE TABLE IF NOT EXISTS activities (
     id SERIAL PRIMARY KEY,
     patient_id INT NOT NULL,
+    user_id INT NOT NULL,
     activity_type VARCHAR(255) NOT NULL,
     personnel_initials VARCHAR(10),
     pharm_flag BOOLEAN,
@@ -33,6 +34,10 @@ CREATE TABLE IF NOT EXISTS activities (
     CONSTRAINT fk_patient
         FOREIGN KEY (patient_id)
         REFERENCES patients(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
         ON DELETE CASCADE
 );
 

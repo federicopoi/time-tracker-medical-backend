@@ -4,6 +4,7 @@ import { pool } from '../config/database.config';
 export interface Activity {
   id?: number;
   patient_id: number;
+  user_id: number;
   activity_type: string;
   personnel_initials?: string;
   pharm_flag?: boolean;
@@ -18,11 +19,12 @@ export class ActivitiesService {
   async createActivity(activity: Activity): Promise<Activity> {
     const result = await pool.query(
       `INSERT INTO activities (
-        patient_id, activity_type, personnel_initials, pharm_flag,
+        patient_id, user_id, activity_type, personnel_initials, pharm_flag,
         notes, site_name, service_datetime, duration_minutes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [
         activity.patient_id,
+        activity.user_id,
         activity.activity_type,
         activity.personnel_initials,
         activity.pharm_flag,
