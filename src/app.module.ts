@@ -5,6 +5,7 @@ import { PatientsModule } from './patients/patients.module'; // Import the Patie
 import { ActivitiesModule } from './activities/activities.module';
 import { AuthModule } from './auth/auth.module';
 import { SitesModule } from './sites/sites.module';
+import { BuildingsModule } from './buildings/buildings.module';
 
 @Module({
   imports: [
@@ -12,7 +13,8 @@ import { SitesModule } from './sites/sites.module';
     UserModule, 
     PatientsModule,      // Register UserModule here
     ActivitiesModule, AuthModule,
-    SitesModule
+    SitesModule,
+    BuildingsModule
   ],
   controllers: [],
   providers: [],

@@ -7,6 +7,7 @@ export interface Activity {
   user_id: number;
   activity_type: string;
   personnel_initials?: string;
+  user_initials?: string;
   pharm_flag?: boolean;
   notes?: string;
   site_name: 'CP Greater San Antonio' | 'CP Intermountain';
@@ -17,17 +18,21 @@ export interface Activity {
 @Injectable()
 export class ActivitiesService {
   async createActivity(activity: Activity): Promise<Activity> {
-    console.log('Creating activity with data:', activity);
+    console.log('Creating activity with data:', JSON.stringify(activity, null, 2));
+    console.log('User initials from request:', activity.user_initials);
+    console.log('User ID from request:', activity.user_id);
+    
     const result = await pool.query(
       `INSERT INTO activities (
-        patient_id, user_id, activity_type, personnel_initials, pharm_flag,
+        patient_id, user_id, activity_type, personnel_initials, user_initials, pharm_flag,
         notes, site_name, service_datetime, duration_minutes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [
         activity.patient_id,
         activity.user_id,
         activity.activity_type,
         activity.personnel_initials || '',
+        activity.user_initials || '',
         activity.pharm_flag || false,
         activity.notes || '',
         activity.site_name,
@@ -35,12 +40,20 @@ export class ActivitiesService {
         activity.duration_minutes,
       ]
     );
-    console.log('Created activity:', result.rows[0]);
+    console.log('Created activity:', JSON.stringify(result.rows[0], null, 2));
     return result.rows[0];
   }
 
   async getActivities(): Promise<Activity[]> {
-    const result = await pool.query('SELECT * FROM activities ORDER BY service_datetime DESC');
+    const result = await pool.query(
+      `SELECT a.*, 
+        u.first_name as user_first_name, 
+        u.last_name as user_last_name,
+        CONCAT(u.first_name[1], u.last_name[1]) as user_initials
+      FROM activities a
+      LEFT JOIN users u ON a.user_id = u.id
+      ORDER BY a.service_datetime DESC`
+    );
     return result.rows;
   }
 
