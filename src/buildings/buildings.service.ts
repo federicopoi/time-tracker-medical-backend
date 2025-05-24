@@ -1,9 +1,43 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { pool } from '../config/database.config';
 import { Building, CreateBuildingDto, UpdateBuildingDto } from './building.interface';
 
 @Injectable()
-export class BuildingsService {
+export class BuildingsService implements OnModuleInit {
+  async onModuleInit() {
+    try {
+      // Check if table exists
+      const tableCheck = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public'
+          AND table_name = 'buildings'
+        );
+      `);
+      console.log('Buildings table exists:', tableCheck.rows[0].exists);
+
+      if (!tableCheck.rows[0].exists) {
+        console.log('Creating buildings table...');
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS buildings (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            site_id INT NOT NULL,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_site
+              FOREIGN KEY (site_id)
+              REFERENCES sites(id)
+              ON DELETE CASCADE
+          );
+        `);
+        console.log('Buildings table created successfully');
+      }
+    } catch (error) {
+      console.error('Error checking/creating buildings table:', error);
+    }
+  }
+
   async createBuilding(building: CreateBuildingDto): Promise<Building> {
     const result = await pool.query(
       `INSERT INTO buildings (name, site_id, is_active)
@@ -46,4 +80,4 @@ export class BuildingsService {
   async deleteBuilding(id: number): Promise<void> {
     await pool.query('DELETE FROM buildings WHERE id = $1', [id]);
   }
-} 
+}
