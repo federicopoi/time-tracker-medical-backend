@@ -53,7 +53,14 @@ export class ActivitiesService {
 
   async getActivitiesByPatientId(patientId: number): Promise<Activity[]> {
     const result = await pool.query(
-      'SELECT * FROM activities WHERE patient_id = $1 ORDER BY service_datetime DESC',
+      `SELECT a.*, 
+        u.first_name as user_first_name, 
+        u.last_name as user_last_name,
+        CONCAT(u.first_name[1], u.last_name[1]) as user_initials
+      FROM activities a
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.patient_id = $1 
+      ORDER BY a.service_datetime DESC`,
       [patientId]
     );
     return result.rows;
