@@ -28,6 +28,7 @@ async function setupDatabase() {
     `);
     console.log('Patients table created successfully');
 
+   
     // Create activities table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS activities (
@@ -48,7 +49,6 @@ async function setupDatabase() {
       );
     `);
     console.log('Activities table created successfully');
-
     // Check if tables were created
     const tables = await pool.query(`
       SELECT table_name 

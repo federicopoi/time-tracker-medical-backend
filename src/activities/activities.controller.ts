@@ -15,7 +15,7 @@ export class ActivitiesController {
   }
 
   @Get()
-  async getActivities() {
+  async getAllActivities() {
     try {
       return await this.activitiesService.getActivities();
     } catch (error) {

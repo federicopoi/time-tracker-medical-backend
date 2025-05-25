@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { pool } from '../config/database.config';
 
 export interface Activity {
@@ -7,7 +7,6 @@ export interface Activity {
   user_id: number;
   activity_type: string;
   personnel_initials?: string;
-  user_initials?: string;
   pharm_flag?: boolean;
   notes?: string;
   site_name: 'CP Greater San Antonio' | 'CP Intermountain';
@@ -16,23 +15,63 @@ export interface Activity {
 }
 
 @Injectable()
-export class ActivitiesService {
+export class ActivitiesService implements OnModuleInit {
+  async onModuleInit() {
+    try {
+      // Check if table exists
+      const tableCheck = await pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public'
+          AND table_name = 'activities'
+        );
+      `);
+      console.log('Activities table exists:', tableCheck.rows[0].exists);
+
+      if (!tableCheck.rows[0].exists) {
+        console.log('Creating activities table...');
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS activities (
+            id SERIAL PRIMARY KEY,
+            patient_id INT NOT NULL,
+            user_id INT NOT NULL,
+            activity_type VARCHAR(255) NOT NULL,
+            personnel_initials VARCHAR(10),
+            pharm_flag BOOLEAN,
+            notes TEXT,
+            site_name VARCHAR(100) CHECK (site_name IN ('CP Greater San Antonio', 'CP Intermountain')),
+            service_datetime TIMESTAMP NOT NULL,
+            duration_minutes DECIMAL(5,2) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_patient
+              FOREIGN KEY (patient_id)
+              REFERENCES patients(id)
+              ON DELETE CASCADE,
+            CONSTRAINT fk_user
+              FOREIGN KEY (user_id)
+              REFERENCES users(id)
+              ON DELETE CASCADE
+          );
+        `);
+        console.log('Activities table created successfully');
+      }
+    } catch (error) {
+      console.error('Error checking/creating activities table:', error);
+    }
+  }
+
   async createActivity(activity: Activity): Promise<Activity> {
-    console.log('Creating activity with data:', JSON.stringify(activity, null, 2));
-    console.log('User initials from request:', activity.user_initials);
-    console.log('User ID from request:', activity.user_id);
-    
+    console.log('Creating activity with data:', activity);
     const result = await pool.query(
       `INSERT INTO activities (
-        patient_id, user_id, activity_type, personnel_initials, user_initials, pharm_flag,
+        patient_id, user_id, activity_type, personnel_initials, pharm_flag,
         notes, site_name, service_datetime, duration_minutes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [
         activity.patient_id,
         activity.user_id,
         activity.activity_type,
         activity.personnel_initials || '',
-        activity.user_initials || '',
         activity.pharm_flag || false,
         activity.notes || '',
         activity.site_name,
@@ -40,28 +79,28 @@ export class ActivitiesService {
         activity.duration_minutes,
       ]
     );
-    console.log('Created activity:', JSON.stringify(result.rows[0], null, 2));
+    console.log('Created activity:', result.rows[0]);
     return result.rows[0];
   }
 
   async getActivities(): Promise<Activity[]> {
-    const result = await pool.query(
-      `SELECT a.*, 
-        u.first_name as user_first_name, 
-        u.last_name as user_last_name,
-        CONCAT(u.first_name[1], u.last_name[1]) as user_initials
-      FROM activities a
-      LEFT JOIN users u ON a.user_id = u.id
-      ORDER BY a.service_datetime DESC`
-    );
-    return result.rows;
+    try {
+      const result = await pool.query('SELECT * FROM activities ORDER BY service_datetime DESC');
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+      throw error;
+    }
   }
 
   async getActivityById(id: number): Promise<Activity> {
-    console.log('Fetching activity with id:', id);
-    const result = await pool.query('SELECT * FROM activities WHERE id = $1', [id]);
-    console.log('Fetched activity:', result.rows[0]);
-    return result.rows[0];
+    try {
+      const result = await pool.query('SELECT * FROM activities WHERE id = $1', [id]);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error fetching activity:', error);
+      throw error;
+    }
   }
 
   async getActivitiesByPatientId(patientId: number): Promise<Activity[]> {
