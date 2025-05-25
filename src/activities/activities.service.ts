@@ -126,20 +126,25 @@ export class ActivitiesService implements OnModuleInit {
     }
   }
 
-  async getActivitiesByPatientId(patientId: number): Promise<Activity[]> {
-    const result = await pool.query(
-      `SELECT a.*, 
-        u.first_name as user_first_name, 
-        u.last_name as user_last_name,
-        CONCAT(u.first_name[1], u.last_name[1]) as user_initials
-      FROM activities a
-      LEFT JOIN users u ON a.user_id = u.id
-      WHERE a.patient_id = $1 
-      ORDER BY a.service_datetime DESC`,
-      [patientId]
-    );
-    return result.rows;
-  }
+// FIXED - Use proper PostgreSQL syntax
+async getActivitiesByPatientId(patientId: number): Promise<Activity[]> {
+  const result = await pool.query(
+    `SELECT a.*, 
+      u.first_name as user_first_name, 
+      u.last_name as user_last_name,
+      CASE 
+        WHEN u.first_name IS NOT NULL AND u.last_name IS NOT NULL 
+        THEN SUBSTRING(u.first_name, 1, 1) || SUBSTRING(u.last_name, 1, 1)
+        ELSE a.personnel_initials
+      END as user_initials
+    FROM activities a
+    LEFT JOIN users u ON a.user_id = u.id
+    WHERE a.patient_id = $1 
+    ORDER BY a.service_datetime DESC`,
+    [patientId]
+  );
+  return result.rows;
+}
 
   async updateActivity(id: number, activity: Partial<Activity>): Promise<Activity> {
     const fields = Object.keys(activity);
