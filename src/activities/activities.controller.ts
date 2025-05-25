@@ -23,6 +23,15 @@ export class ActivitiesController {
     }
   }
 
+  @Get('with-details')
+  async getActivitiesWithDetails() {
+    try {
+      return await this.activitiesService.getActivitiesWithDetails();
+    } catch (error) {
+      throw new HttpException('Failed to fetch activities with details', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Get(':id')
   async getActivityById(@Param('id') id: string) {
     try {
@@ -69,4 +78,6 @@ export class ActivitiesController {
       throw new HttpException('Failed to delete activity', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  
 } 
