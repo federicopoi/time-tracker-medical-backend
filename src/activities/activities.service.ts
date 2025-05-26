@@ -6,6 +6,7 @@ export interface Activity {
   patient_id: number;
   user_id: number;
   activity_type: string;
+  user_initials?: string;
   pharm_flag?: boolean;
   notes?: string;
   site_name: 'CP Greater San Antonio' | 'CP Intermountain';
@@ -35,6 +36,7 @@ export class ActivitiesService implements OnModuleInit {
             patient_id INT NOT NULL,
             user_id INT NOT NULL,
             activity_type VARCHAR(255) NOT NULL,
+            user_initials VARCHAR(10),
             pharm_flag BOOLEAN,
             notes TEXT,
             site_name VARCHAR(100) CHECK (site_name IN ('CP Greater San Antonio', 'CP Intermountain')),
@@ -60,15 +62,29 @@ export class ActivitiesService implements OnModuleInit {
 
   async createActivity(activity: Activity): Promise<Activity> {
     console.log('Creating activity with data:', activity);
+    
+    // First, get the user's initials based on user_id
+    const userResult = await pool.query(
+      'SELECT first_name, last_name FROM users WHERE id = $1',
+      [activity.user_id]
+    );
+    
+    let userInitials = '';
+    if (userResult.rows.length > 0) {
+      const user = userResult.rows[0];
+      userInitials = (user.first_name?.charAt(0) || '') + (user.last_name?.charAt(0) || '');
+    }
+    
     const result = await pool.query(
       `INSERT INTO activities (
-        patient_id, user_id, activity_type, pharm_flag,
+        patient_id, user_id, activity_type, user_initials, pharm_flag,
         notes, site_name, service_datetime, duration_minutes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
       [
         activity.patient_id,
         activity.user_id,
         activity.activity_type,
+        userInitials,
         activity.pharm_flag || false,
         activity.notes || '',
         activity.site_name,
@@ -76,20 +92,14 @@ export class ActivitiesService implements OnModuleInit {
         activity.duration_minutes,
       ]
     );
+    
     console.log('Created activity:', result.rows[0]);
     return result.rows[0];
   }
 
   async getActivities(): Promise<Activity[]> {
     try {
-      const result = await pool.query(`
-        SELECT 
-          a.*,
-          CONCAT(SUBSTRING(u.first_name, 1, 1), SUBSTRING(u.last_name, 1, 1)) as user_initials
-        FROM activities a
-        LEFT JOIN users u ON a.user_id = u.id
-        ORDER BY a.service_datetime DESC
-      `);
+      const result = await pool.query('SELECT * FROM activities ORDER BY service_datetime DESC');
       return result.rows;
     } catch (error) {
       console.error('Error fetching activities:', error);
@@ -106,8 +116,7 @@ export class ActivitiesService implements OnModuleInit {
           p.last_name as patient_last_name,
           CONCAT(p.last_name, ', ', p.first_name) as patient_name,
           u.first_name as user_first_name,
-          u.last_name as user_last_name,
-          CONCAT(SUBSTRING(u.first_name, 1, 1), SUBSTRING(u.last_name, 1, 1)) as user_initials
+          u.last_name as user_last_name
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
@@ -129,8 +138,7 @@ export class ActivitiesService implements OnModuleInit {
           p.last_name as patient_last_name,
           CONCAT(p.last_name, ', ', p.first_name) as patient_name,
           u.first_name as user_first_name,
-          u.last_name as user_last_name,
-          CONCAT(SUBSTRING(u.first_name, 1, 1), SUBSTRING(u.last_name, 1, 1)) as user_initials
+          u.last_name as user_last_name
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
@@ -147,8 +155,7 @@ export class ActivitiesService implements OnModuleInit {
     const result = await pool.query(
       `SELECT a.*, 
         u.first_name as user_first_name, 
-        u.last_name as user_last_name,
-        CONCAT(SUBSTRING(u.first_name, 1, 1), SUBSTRING(u.last_name, 1, 1)) as user_initials
+        u.last_name as user_last_name
       FROM activities a
       LEFT JOIN users u ON a.user_id = u.id
       WHERE a.patient_id = $1 
