@@ -6,7 +6,6 @@ export interface Activity {
   patient_id: number;
   user_id: number;
   activity_type: string;
-  personnel_initials?: string;
   pharm_flag?: boolean;
   notes?: string;
   site_name: 'CP Greater San Antonio' | 'CP Intermountain';
@@ -36,7 +35,6 @@ export class ActivitiesService implements OnModuleInit {
             patient_id INT NOT NULL,
             user_id INT NOT NULL,
             activity_type VARCHAR(255) NOT NULL,
-            personnel_initials VARCHAR(10),
             pharm_flag BOOLEAN,
             notes TEXT,
             site_name VARCHAR(100) CHECK (site_name IN ('CP Greater San Antonio', 'CP Intermountain')),
@@ -64,14 +62,13 @@ export class ActivitiesService implements OnModuleInit {
     console.log('Creating activity with data:', activity);
     const result = await pool.query(
       `INSERT INTO activities (
-        patient_id, user_id, activity_type, personnel_initials, pharm_flag,
+        patient_id, user_id, activity_type, pharm_flag,
         notes, site_name, service_datetime, duration_minutes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [
         activity.patient_id,
         activity.user_id,
         activity.activity_type,
-        activity.personnel_initials || '',
         activity.pharm_flag || false,
         activity.notes || '',
         activity.site_name,
@@ -85,7 +82,14 @@ export class ActivitiesService implements OnModuleInit {
 
   async getActivities(): Promise<Activity[]> {
     try {
-      const result = await pool.query('SELECT * FROM activities ORDER BY service_datetime DESC');
+      const result = await pool.query(`
+        SELECT 
+          a.*,
+          CONCAT(SUBSTRING(u.first_name, 1, 1), SUBSTRING(u.last_name, 1, 1)) as user_initials
+        FROM activities a
+        LEFT JOIN users u ON a.user_id = u.id
+        ORDER BY a.service_datetime DESC
+      `);
       return result.rows;
     } catch (error) {
       console.error('Error fetching activities:', error);
@@ -139,25 +143,20 @@ export class ActivitiesService implements OnModuleInit {
     }
   }
 
-// FIXED - Use proper PostgreSQL syntax
-async getActivitiesByPatientId(patientId: number): Promise<Activity[]> {
-  const result = await pool.query(
-    `SELECT a.*, 
-      u.first_name as user_first_name, 
-      u.last_name as user_last_name,
-      CASE 
-        WHEN u.first_name IS NOT NULL AND u.last_name IS NOT NULL 
-        THEN SUBSTRING(u.first_name, 1, 1) || SUBSTRING(u.last_name, 1, 1)
-        ELSE a.personnel_initials
-      END as user_initials
-    FROM activities a
-    LEFT JOIN users u ON a.user_id = u.id
-    WHERE a.patient_id = $1 
-    ORDER BY a.service_datetime DESC`,
-    [patientId]
-  );
-  return result.rows;
-}
+  async getActivitiesByPatientId(patientId: number): Promise<Activity[]> {
+    const result = await pool.query(
+      `SELECT a.*, 
+        u.first_name as user_first_name, 
+        u.last_name as user_last_name,
+        CONCAT(SUBSTRING(u.first_name, 1, 1), SUBSTRING(u.last_name, 1, 1)) as user_initials
+      FROM activities a
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.patient_id = $1 
+      ORDER BY a.service_datetime DESC`,
+      [patientId]
+    );
+    return result.rows;
+  }
 
   async updateActivity(id: number, activity: Partial<Activity>): Promise<Activity> {
     const fields = Object.keys(activity);
