@@ -55,9 +55,12 @@ export class UsersService implements OnModuleInit {
   // check if user exist for auth 
   async findOne(email: string, password: string): Promise<User | null> {
     try {
+      // Normalize email to lowercase for case-insensitive comparison
+      const normalizedEmail = email.toLowerCase();
+      
       const result = await pool.query(
-        "SELECT * FROM users WHERE email = $1",
-        [email]
+        "SELECT * FROM users WHERE LOWER(email) = $1",
+        [normalizedEmail]
       );
       
       const user = result.rows[0];
@@ -86,6 +89,9 @@ export class UsersService implements OnModuleInit {
         throw new Error('Missing required fields');
       }
 
+      // Normalize email to lowercase for consistency
+      const normalizedEmail = user.email.toLowerCase();
+
       // Hash the password
       const hashedPassword = await bcrypt.hash(user.password, this.SALT_ROUNDS);
 
@@ -99,7 +105,7 @@ export class UsersService implements OnModuleInit {
         [
           user.first_name,
           user.last_name,
-          user.email,
+          normalizedEmail,
           hashedPassword,
           user.role,
           user.primarysite,
@@ -150,6 +156,11 @@ export class UsersService implements OnModuleInit {
       const currentUser = await this.getUserById(id);
       if (!currentUser) {
         throw new Error("User not found");
+      }
+
+      // Normalize email to lowercase if it's being updated
+      if (user.email) {
+        user.email = user.email.toLowerCase();
       }
 
       const fields = Object.keys(user).filter((key) => user[key] !== undefined);
