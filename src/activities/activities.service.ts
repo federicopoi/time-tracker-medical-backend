@@ -6,7 +6,7 @@ export interface Activity {
   patient_id: number;
   user_id: number;
   activity_type: string;
-  user_initials?: string;
+  user_initials: string;
   pharm_flag?: boolean;
   notes?: string;
   site_name: 'CP Greater San Antonio' | 'CP Intermountain';
@@ -36,7 +36,7 @@ export class ActivitiesService implements OnModuleInit {
             patient_id INT NOT NULL,
             user_id INT NOT NULL,
             activity_type VARCHAR(255) NOT NULL,
-            user_initials VARCHAR(10),
+            user_initials VARCHAR(10) NOT NULL,
             pharm_flag BOOLEAN,
             notes TEXT,
             site_name VARCHAR(100) CHECK (site_name IN ('CP Greater San Antonio', 'CP Intermountain')),
@@ -64,16 +64,24 @@ export class ActivitiesService implements OnModuleInit {
     console.log('Creating activity with data:', activity);
     
     // First, get the user's initials based on user_id
+    console.log('Looking up user with ID:', activity.user_id);
     const userResult = await pool.query(
       'SELECT first_name, last_name FROM users WHERE id = $1',
       [activity.user_id]
     );
     
+    console.log('User query result:', userResult.rows);
+    
     let userInitials = '';
     if (userResult.rows.length > 0) {
       const user = userResult.rows[0];
       userInitials = (user.first_name?.charAt(0) || '') + (user.last_name?.charAt(0) || '');
+      console.log('Calculated user initials:', userInitials);
+    } else {
+      console.log('No user found with ID:', activity.user_id);
     }
+    
+    console.log('About to insert with user_initials:', userInitials);
     
     const result = await pool.query(
       `INSERT INTO activities (

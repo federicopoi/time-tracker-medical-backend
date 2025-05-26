@@ -7,10 +7,27 @@ export class ActivitiesController {
 
   @Post()
   async createActivity(@Body() activity: Activity) {
+    console.log('=== ACTIVITY CREATION REQUEST ===');
+    console.log('Raw request body received:', JSON.stringify(activity, null, 2));
+    console.log('Activity user_id:', activity.user_id);
+    console.log('Activity patient_id:', activity.patient_id);
+    console.log('Activity type:', activity.activity_type);
+    console.log('Activity site_name:', activity.site_name);
+    console.log('Activity service_datetime:', activity.service_datetime);
+    console.log('Activity duration_minutes:', activity.duration_minutes);
+    console.log('Activity pharm_flag:', activity.pharm_flag);
+    console.log('Activity notes:', activity.notes);
+    console.log('=== END REQUEST DATA ===');
+    
     try {
-      return await this.activitiesService.createActivity(activity);
+      const result = await this.activitiesService.createActivity(activity);
+      console.log('=== ACTIVITY CREATION RESPONSE ===');
+      console.log('Created activity result:', JSON.stringify(result, null, 2));
+      console.log('=== END RESPONSE DATA ===');
+      return result;
     } catch (error) {
-      throw new HttpException('Failed to create activity', HttpStatus.INTERNAL_SERVER_ERROR);
+      console.error('Error creating activity:', error);
+      throw error;
     }
   }
 
