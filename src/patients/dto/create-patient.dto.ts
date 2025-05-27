@@ -7,6 +7,6 @@ export class CreatePatientDto {
     contact_name?: string;
     contact_phone_number?: string;
     insurance?: string;
-    site_name: 'CP Greater San Antonio' | 'CP Intermountain';
+    site_name: string;
   }
   
