@@ -9,7 +9,7 @@ export interface Activity {
   user_initials: string;
   pharm_flag?: boolean;
   notes?: string;
-  site_name: 'CP Greater San Antonio' | 'CP Intermountain';
+  site_name: string;
   service_datetime: Date;
   duration_minutes: number;
 }
@@ -28,7 +28,25 @@ export class ActivitiesService implements OnModuleInit {
       `);
       console.log('Activities table exists:', tableCheck.rows[0].exists);
 
-      if (!tableCheck.rows[0].exists) {
+      let shouldRecreateTable = false;
+
+      if (tableCheck.rows[0].exists) {
+        // Check if the table has the old constraint
+        const constraintCheck = await pool.query(`
+          SELECT constraint_name 
+          FROM information_schema.check_constraints 
+          WHERE constraint_name LIKE '%site_name%' 
+          AND constraint_schema = 'public'
+        `);
+        
+        if (constraintCheck.rows.length > 0) {
+          console.log('Found old site_name constraint in activities, dropping and recreating table...');
+          await pool.query('DROP TABLE IF EXISTS activities CASCADE');
+          shouldRecreateTable = true;
+        }
+      }
+
+      if (!tableCheck.rows[0].exists || shouldRecreateTable) {
         console.log('Creating activities table...');
         await pool.query(`
           CREATE TABLE IF NOT EXISTS activities (
@@ -39,7 +57,7 @@ export class ActivitiesService implements OnModuleInit {
             user_initials VARCHAR(10) NOT NULL,
             pharm_flag BOOLEAN,
             notes TEXT,
-            site_name VARCHAR(100) CHECK (site_name IN ('CP Greater San Antonio', 'CP Intermountain')),
+            site_name VARCHAR(100) NOT NULL,
             service_datetime TIMESTAMP NOT NULL,
             duration_minutes DECIMAL(5,2) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

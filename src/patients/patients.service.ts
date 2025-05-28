@@ -39,7 +39,25 @@ export class PatientsService implements OnModuleInit {
       `);
       console.log('Patients table exists:', tableCheck.rows[0].exists);
 
-      if (!tableCheck.rows[0].exists) {
+      let shouldRecreateTable = false;
+
+      if (tableCheck.rows[0].exists) {
+        // Check if the table has the old constraint
+        const constraintCheck = await pool.query(`
+          SELECT constraint_name 
+          FROM information_schema.check_constraints 
+          WHERE constraint_name LIKE '%site_name%' 
+          AND constraint_schema = 'public'
+        `);
+        
+        if (constraintCheck.rows.length > 0) {
+          console.log('Found old site_name constraint, dropping and recreating table...');
+          await pool.query('DROP TABLE IF EXISTS patients CASCADE');
+          shouldRecreateTable = true;
+        }
+      }
+
+      if (!tableCheck.rows[0].exists || shouldRecreateTable) {
         console.log('Creating patients table...');
         await pool.query(`
           CREATE TABLE IF NOT EXISTS patients (
