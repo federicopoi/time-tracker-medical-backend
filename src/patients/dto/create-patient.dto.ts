@@ -8,5 +8,6 @@ export class CreatePatientDto {
     contact_phone_number?: string;
     insurance?: string;
     site_name: string;
+    building?: string;
   }
   
