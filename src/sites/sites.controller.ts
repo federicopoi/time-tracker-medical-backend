@@ -39,13 +39,17 @@ export class SitesController {
 
   @Put(':id')
   async updateSite(@Param('id') id: string, @Body() site: Partial<Site>) {
+    console.log(`Updating site with ID: ${id}`, site);
     try {
       const updatedSite = await this.sitesService.updateSite(parseInt(id), site);
       if (!updatedSite) {
+        console.log(`Site with ID ${id} not found`);
         throw new HttpException('Site not found', HttpStatus.NOT_FOUND);
       }
+      console.log('Site updated successfully:', updatedSite);
       return updatedSite;
     } catch (error) {
+      console.error('Error updating site:', error);
       if (error instanceof HttpException) throw error;
       throw new HttpException('Failed to update site', HttpStatus.INTERNAL_SERVER_ERROR);
     }

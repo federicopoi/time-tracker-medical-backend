@@ -79,14 +79,32 @@ export class SitesService implements OnModuleInit {
   }
 
   async updateSite(id: number, site: Partial<Site>): Promise<Site> {
+    console.log(`Updating site ${id} with data:`, site);
+    
     const fields = Object.keys(site);
     const values = Object.values(site);
-    const setString = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
     
-    const result = await pool.query(
-      `UPDATE sites SET ${setString} WHERE id = $${fields.length + 1} RETURNING *`,
-      [...values, id]
-    );
+    if (fields.length === 0) {
+      console.log('No fields to update');
+      throw new Error('No fields to update');
+    }
+    
+    const setString = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+    const query = `UPDATE sites SET ${setString} WHERE id = $${fields.length + 1} RETURNING *`;
+    
+    console.log('Executing SQL query:', query);
+    console.log('With values:', [...values, id]);
+    
+    const result = await pool.query(query, [...values, id]);
+    
+    console.log('Query result:', result.rows);
+    
+    if (result.rows.length === 0) {
+      console.log(`No site found with ID ${id}`);
+      throw new Error('Site not found');
+    }
+    
+    console.log('Site updated successfully:', result.rows[0]);
     return result.rows[0];
   }
 
