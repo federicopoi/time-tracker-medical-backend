@@ -5,8 +5,8 @@ export interface Patient {
   id?: number;
   first_name: string;
   last_name: string;
-  birthdate: Date;
-  gender: 'M' | 'F';
+  birthdate: Date | string;
+  gender: 'M' | 'F' | 'O';
   phone_number?: string;
   contact_name?: string;
   contact_phone_number?: string;
@@ -47,7 +47,7 @@ export class PatientsService implements OnModuleInit {
             first_name VARCHAR(50) NOT NULL,
             last_name VARCHAR(50) NOT NULL,
             birthdate DATE NOT NULL,
-            gender CHAR(1) CHECK (gender IN ('M', 'F')),
+            gender CHAR(1) CHECK (gender IN ('M', 'F', 'O')),
             phone_number VARCHAR(20),
             contact_name VARCHAR(100),
             contact_phone_number VARCHAR(20),
@@ -76,6 +76,10 @@ export class PatientsService implements OnModuleInit {
   async createPatient(patient: Patient): Promise<Patient> {
     try {
       console.log('Attempting to create patient with data:', patient);
+      
+      // Convert birthdate string to Date if needed
+      const birthdate = typeof patient.birthdate === 'string' ? new Date(patient.birthdate) : patient.birthdate;
+      
       const result = await pool.query(
         `INSERT INTO patients (
           first_name, last_name, birthdate, gender, phone_number,
@@ -84,7 +88,7 @@ export class PatientsService implements OnModuleInit {
         [
           patient.first_name,
           patient.last_name,
-          patient.birthdate,
+          birthdate,
           patient.gender,
           patient.phone_number,
           patient.contact_name,
@@ -99,6 +103,8 @@ export class PatientsService implements OnModuleInit {
       return result.rows[0];
     } catch (error) {
       console.error('Error creating patient:', error);
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
       throw new Error(`Failed to create patient: ${error.message}`);
     }
   }

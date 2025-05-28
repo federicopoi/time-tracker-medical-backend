@@ -1,16 +1,19 @@
 import { Controller, Get, Post, Put, Delete, Body, Param, HttpException, HttpStatus } from '@nestjs/common';
 import { PatientsService, Patient } from './patients.service';
+import { CreatePatientDto } from './dto/create-patient.dto';
 
 @Controller('patients')
 export class PatientsController {
   constructor(private readonly patientsService: PatientsService) {}
 
   @Post()
-  async createPatient(@Body() patient: Patient) {
+  async createPatient(@Body() patientDto: CreatePatientDto) {
     try {
-      return await this.patientsService.createPatient(patient);
+      console.log('Received patient data:', patientDto);
+      return await this.patientsService.createPatient(patientDto as Patient);
     } catch (error) {
-      throw new HttpException('Failed to create patient', HttpStatus.INTERNAL_SERVER_ERROR);
+      console.error('Error in createPatient controller:', error);
+      throw new HttpException(`Failed to create patient: ${error.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
