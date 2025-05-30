@@ -142,10 +142,19 @@ export class ActivitiesService implements OnModuleInit {
           p.last_name as patient_last_name,
           CONCAT(p.last_name, ', ', p.first_name) as patient_name,
           u.first_name as user_first_name,
-          u.last_name as user_last_name
+          u.last_name as user_last_name,
+          s.name as site_name,
+          s.address as site_address,
+          s.city as site_city,
+          s.state as site_state,
+          s.zip as site_zip,
+          b.name as building_name,
+          b.id as building_id
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN sites s ON a.site_name = s.name
+        LEFT JOIN buildings b ON b.site_id = s.id
         ORDER BY a.service_datetime DESC
       `);
       return result.rows;
