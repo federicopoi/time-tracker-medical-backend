@@ -172,4 +172,111 @@ export class PatientsService implements OnModuleInit {
   async deletePatient(id: number): Promise<void> {
     await pool.query('DELETE FROM patients WHERE id = $1', [id]);
   }
+
+  // Optimized query: Get patient with all activities and user details using LEFT JOINs
+  async getPatientWithActivitiesAndUsers(patientId: number): Promise<any> {
+    try {
+      console.log('Fetching patient with activities and users for ID:', patientId);
+      
+      // Get patient details with aggregated activities
+      const result = await pool.query(`
+        SELECT 
+          p.*,
+          COALESCE(
+            json_agg(
+              CASE 
+                WHEN a.id IS NOT NULL THEN
+                  json_build_object(
+                    'id', a.id,
+                    'activity_type', a.activity_type,
+                    'user_initials', a.user_initials,
+                    'pharm_flag', a.pharm_flag,
+                    'notes', a.notes,
+                    'site_name', a.site_name,
+                    'service_datetime', a.service_datetime,
+                    'duration_minutes', a.duration_minutes,
+                    'created_at', a.created_at,
+                    'user_first_name', u.first_name,
+                    'user_last_name', u.last_name,
+                    'user_email', u.email,
+                    'user_role', u.role
+                  )
+                ELSE NULL
+              END
+              ORDER BY a.service_datetime DESC
+            ) FILTER (WHERE a.id IS NOT NULL),
+            '[]'::json
+          ) as activities
+        FROM patients p
+        LEFT JOIN activities a ON p.id = a.patient_id
+        LEFT JOIN users u ON a.user_id = u.id
+        WHERE p.id = $1
+        GROUP BY p.id, p.first_name, p.last_name, p.birthdate, p.gender, 
+                 p.phone_number, p.contact_name, p.contact_phone_number, 
+                 p.insurance, p.is_active, p.site_name, p.building, p.created_at,
+                 p.medical_records_completed, p.bp_at_goal, p.hospital_visited_since_last_review,
+                 p.a1c_at_goal, p.use_benzo, p.fall_since_last_visit, 
+                 p.use_antipsychotic, p.use_opioids
+      `, [patientId]);
+      
+      console.log(`Found patient with ${result.rows[0]?.activities?.length || 0} activities`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error fetching patient with activities and users:', error);
+      throw error;
+    }
+  }
+
+  // Optimized query: Get all patients with their activity counts and latest activity
+  async getPatientsWithActivitySummary(): Promise<any[]> {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          p.*,
+          COUNT(a.id) as activity_count,
+          MAX(a.service_datetime) as last_activity_date,
+          json_agg(
+            DISTINCT jsonb_build_object(
+              'activity_type', a.activity_type,
+              'count', (
+                SELECT COUNT(*) 
+                FROM activities a2 
+                WHERE a2.patient_id = p.id AND a2.activity_type = a.activity_type
+              )
+            )
+          ) FILTER (WHERE a.activity_type IS NOT NULL) as activity_types_summary
+        FROM patients p
+        LEFT JOIN activities a ON p.id = a.patient_id
+        GROUP BY p.id
+        ORDER BY p.last_name, p.first_name
+      `);
+      
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching patients with activity summary:', error);
+      throw error;
+    }
+  }
+
+  // Optimized query: Get patients by site with activity counts
+  async getPatientsBySiteWithActivityCounts(siteName: string): Promise<any[]> {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          p.*,
+          COUNT(a.id) as activity_count,
+          MAX(a.service_datetime) as last_activity_date
+        FROM patients p
+        LEFT JOIN activities a ON p.id = a.patient_id
+        WHERE p.site_name = $1
+        GROUP BY p.id
+        ORDER BY p.last_name, p.first_name
+      `, [siteName]);
+      
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching patients by site with activity counts:', error);
+      throw error;
+    }
+  }
 }

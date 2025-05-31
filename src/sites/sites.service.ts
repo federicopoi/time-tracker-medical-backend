@@ -111,4 +111,182 @@ export class SitesService implements OnModuleInit {
   async deleteSite(id: number): Promise<void> {
     await pool.query('DELETE FROM sites WHERE id = $1', [id]);
   }
+
+  // Optimized query: Get site with all details (buildings, users, patient counts) using LEFT JOINs
+  async getSiteWithAllDetails(siteId: number): Promise<any> {
+    try {
+      console.log('Fetching comprehensive site details for ID:', siteId);
+      
+      const result = await pool.query(`
+        SELECT 
+          s.*,
+          COALESCE(
+            json_agg(
+              DISTINCT CASE 
+                WHEN b.id IS NOT NULL THEN
+                  json_build_object(
+                    'id', b.id,
+                    'name', b.name,
+                    'is_active', b.is_active,
+                    'created_at', b.created_at
+                  )
+                ELSE NULL
+              END
+            ) FILTER (WHERE b.id IS NOT NULL),
+            '[]'::json
+          ) as buildings,
+          COALESCE(
+            json_agg(
+              DISTINCT CASE 
+                WHEN u.id IS NOT NULL THEN
+                  json_build_object(
+                    'id', u.id,
+                    'first_name', u.first_name,
+                    'last_name', u.last_name,
+                    'email', u.email,
+                    'role', u.role,
+                    'primarysite', u.primarysite,
+                    'assignedsites', u.assignedsites
+                  )
+                ELSE NULL
+              END
+            ) FILTER (WHERE u.id IS NOT NULL),
+            '[]'::json
+          ) as users,
+          (
+            SELECT COUNT(*)::integer 
+            FROM patients p 
+            WHERE p.site_name = s.name
+          ) as patient_count,
+          (
+            SELECT COUNT(*)::integer 
+            FROM patients p 
+            WHERE p.site_name = s.name AND p.is_active = true
+          ) as active_patient_count,
+          (
+            SELECT COUNT(*)::integer 
+            FROM activities a 
+            WHERE a.site_name = s.name
+          ) as total_activities_count
+        FROM sites s
+        LEFT JOIN buildings b ON s.id = b.site_id
+        LEFT JOIN users u ON s.name = u.primarysite OR s.name = ANY(u.assignedsites)
+        WHERE s.id = $1
+        GROUP BY s.id, s.name, s.address, s.city, s.state, s.zip, s.is_active, s.created_at
+      `, [siteId]);
+      
+      console.log(`Found site with ${result.rows[0]?.buildings?.length || 0} buildings and ${result.rows[0]?.users?.length || 0} users`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error fetching site with all details:', error);
+      throw error;
+    }
+  }
+
+  // Optimized query: Get site by name with all details
+  async getSiteByNameWithAllDetails(siteName: string): Promise<any> {
+    try {
+      console.log('Fetching comprehensive site details for name:', siteName);
+      
+      const result = await pool.query(`
+        SELECT 
+          s.*,
+          COALESCE(
+            json_agg(
+              DISTINCT CASE 
+                WHEN b.id IS NOT NULL THEN
+                  json_build_object(
+                    'id', b.id,
+                    'name', b.name,
+                    'is_active', b.is_active,
+                    'created_at', b.created_at
+                  )
+                ELSE NULL
+              END
+            ) FILTER (WHERE b.id IS NOT NULL),
+            '[]'::json
+          ) as buildings,
+          COALESCE(
+            json_agg(
+              DISTINCT CASE 
+                WHEN u.id IS NOT NULL THEN
+                  json_build_object(
+                    'id', u.id,
+                    'first_name', u.first_name,
+                    'last_name', u.last_name,
+                    'email', u.email,
+                    'role', u.role,
+                    'primarysite', u.primarysite,
+                    'assignedsites', u.assignedsites
+                  )
+                ELSE NULL
+              END
+            ) FILTER (WHERE u.id IS NOT NULL),
+            '[]'::json
+          ) as users,
+          (
+            SELECT COUNT(*)::integer 
+            FROM patients p 
+            WHERE p.site_name = s.name
+          ) as patient_count,
+          (
+            SELECT COUNT(*)::integer 
+            FROM patients p 
+            WHERE p.site_name = s.name AND p.is_active = true
+          ) as active_patient_count,
+          (
+            SELECT COUNT(*)::integer 
+            FROM activities a 
+            WHERE a.site_name = s.name
+          ) as total_activities_count
+        FROM sites s
+        LEFT JOIN buildings b ON s.id = b.site_id
+        LEFT JOIN users u ON s.name = u.primarysite OR s.name = ANY(u.assignedsites)
+        WHERE s.name = $1
+        GROUP BY s.id, s.name, s.address, s.city, s.state, s.zip, s.is_active, s.created_at
+      `, [siteName]);
+      
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error fetching site by name with all details:', error);
+      throw error;
+    }
+  }
+
+  // Optimized query: Get all sites with summary statistics
+  async getSitesWithSummaryStats(): Promise<any[]> {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          s.*,
+          COUNT(DISTINCT b.id)::integer as building_count,
+          COUNT(DISTINCT u.id)::integer as user_count,
+          (
+            SELECT COUNT(*)::integer 
+            FROM patients p 
+            WHERE p.site_name = s.name
+          ) as patient_count,
+          (
+            SELECT COUNT(*)::integer 
+            FROM patients p 
+            WHERE p.site_name = s.name AND p.is_active = true
+          ) as active_patient_count,
+          (
+            SELECT COUNT(*)::integer 
+            FROM activities a 
+            WHERE a.site_name = s.name
+          ) as total_activities_count
+        FROM sites s
+        LEFT JOIN buildings b ON s.id = b.site_id
+        LEFT JOIN users u ON s.name = u.primarysite OR s.name = ANY(u.assignedsites)
+        GROUP BY s.id, s.name, s.address, s.city, s.state, s.zip, s.is_active, s.created_at
+        ORDER BY s.name ASC
+      `);
+      
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching sites with summary stats:', error);
+      throw error;
+    }
+  }
 } 

@@ -187,8 +187,81 @@ export class UsersService implements OnModuleInit {
     }
   }
 
+  // Optimized query: Get users by site with site details using LEFT JOIN
+  async getUsersBySiteWithDetails(siteName: string): Promise<any[]> {
+    try {
+      console.log('Fetching users for site with details:', siteName);
+      const result = await pool.query(`
+        SELECT 
+          u.*,
+          s.id as site_id,
+          s.name as site_name,
+          s.address as site_address,
+          s.city as site_city,
+          s.state as site_state,
+          s.zip as site_zip,
+          s.is_active as site_is_active
+        FROM users u
+        LEFT JOIN sites s ON s.name = u.primarysite
+        WHERE u.primarysite = $1 OR $1 = ANY(u.assignedsites)
+        ORDER BY u.last_name, u.first_name
+      `, [siteName]);
+      
+      console.log(`Found ${result.rows.length} users for site ${siteName}`);
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching users by site with details:', error);
+      throw error;
+    }
+  }
 
+  // Optimized query: Get all users with their site details using LEFT JOIN
+  async getUsersWithSiteDetails(): Promise<any[]> {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          u.*,
+          s.id as primary_site_id,
+          s.name as primary_site_name,
+          s.address as primary_site_address,
+          s.city as primary_site_city,
+          s.state as primary_site_state,
+          s.zip as primary_site_zip,
+          s.is_active as primary_site_is_active
+        FROM users u
+        LEFT JOIN sites s ON s.name = u.primarysite
+        ORDER BY u.last_name, u.first_name
+      `);
+      
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching users with site details:', error);
+      throw error;
+    }
+  }
 
-
-  
+  // Optimized query: Get user by ID with all related site information
+  async getUserByIdWithSiteDetails(id: number): Promise<any> {
+    try {
+      const result = await pool.query(`
+        SELECT 
+          u.*,
+          s.id as primary_site_id,
+          s.name as primary_site_name,
+          s.address as primary_site_address,
+          s.city as primary_site_city,
+          s.state as primary_site_state,
+          s.zip as primary_site_zip,
+          s.is_active as primary_site_is_active
+        FROM users u
+        LEFT JOIN sites s ON s.name = u.primarysite
+        WHERE u.id = $1
+      `, [id]);
+      
+      return result.rows[0];
+    } catch (error) {
+      console.error('Error fetching user by ID with site details:', error);
+      throw error;
+    }
+  }
 }

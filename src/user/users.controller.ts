@@ -76,5 +76,42 @@ export class UsersController {
         }
     }
 
+    // Optimized endpoint: Get users by site with site details
+    @Get('site/:siteName/details')
+    async getUsersBySiteWithDetails(@Param('siteName') siteName: string) {
+        try {
+            return await this.usersService.getUsersBySiteWithDetails(siteName);
+        } catch (error) {
+            console.error('Error in getUsersBySiteWithDetails controller:', error);
+            throw new HttpException('Failed to fetch users by site with details', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // Optimized endpoint: Get all users with site details
+    @Get('with-site-details')
+    async getUsersWithSiteDetails() {
+        try {
+            return await this.usersService.getUsersWithSiteDetails();
+        } catch (error) {
+            console.error('Error in getUsersWithSiteDetails controller:', error);
+            throw new HttpException('Failed to fetch users with site details', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    // Optimized endpoint: Get user by ID with site details
+    @Get(':id/with-site-details')
+    async getUserByIdWithSiteDetails(@Param('id') id: string) {
+        try {
+            const user = await this.usersService.getUserByIdWithSiteDetails(parseInt(id));
+            if (!user) {
+                throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+            }
+            return user;
+        } catch (error) {
+            if (error instanceof HttpException) throw error;
+            console.error('Error in getUserByIdWithSiteDetails controller:', error);
+            throw new HttpException('Failed to fetch user with site details', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 
 }

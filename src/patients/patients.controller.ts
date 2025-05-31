@@ -63,4 +63,42 @@ export class PatientsController {
       throw new HttpException('Failed to delete patient', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  // Optimized endpoint: Get patient with all activities and user details
+  @Get(':id/with-activities-and-users')
+  async getPatientWithActivitiesAndUsers(@Param('id') id: string) {
+    try {
+      const patient = await this.patientsService.getPatientWithActivitiesAndUsers(parseInt(id));
+      if (!patient) {
+        throw new HttpException('Patient not found', HttpStatus.NOT_FOUND);
+      }
+      return patient;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      console.error('Error in getPatientWithActivitiesAndUsers controller:', error);
+      throw new HttpException('Failed to fetch patient with activities and users', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Optimized endpoint: Get all patients with activity summary
+  @Get('with-activity-summary/all')
+  async getPatientsWithActivitySummary() {
+    try {
+      return await this.patientsService.getPatientsWithActivitySummary();
+    } catch (error) {
+      console.error('Error in getPatientsWithActivitySummary controller:', error);
+      throw new HttpException('Failed to fetch patients with activity summary', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  // Optimized endpoint: Get patients by site with activity counts
+  @Get('site/:siteName/with-activity-counts')
+  async getPatientsBySiteWithActivityCounts(@Param('siteName') siteName: string) {
+    try {
+      return await this.patientsService.getPatientsBySiteWithActivityCounts(siteName);
+    } catch (error) {
+      console.error('Error in getPatientsBySiteWithActivityCounts controller:', error);
+      throw new HttpException('Failed to fetch patients by site with activity counts', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }
