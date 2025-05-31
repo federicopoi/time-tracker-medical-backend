@@ -11,6 +11,7 @@ export interface Activity {
   notes?: string;
   site_name: string;
   service_datetime: Date;
+  building_name?: string;
   duration_minutes: number;
 }
 
@@ -58,6 +59,7 @@ export class ActivitiesService implements OnModuleInit {
             pharm_flag BOOLEAN,
             notes TEXT,
             site_name VARCHAR(100) NOT NULL,
+            building_name VARCHAR(100),NOT NULL,
             service_datetime TIMESTAMP NOT NULL,
             duration_minutes DECIMAL(5,2) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -104,8 +106,8 @@ export class ActivitiesService implements OnModuleInit {
     const result = await pool.query(
       `INSERT INTO activities (
         patient_id, user_id, activity_type, user_initials, pharm_flag,
-        notes, site_name, service_datetime, duration_minutes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        notes, site_name, building_name, service_datetime, duration_minutes
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [
         activity.patient_id,
         activity.user_id,
@@ -114,6 +116,7 @@ export class ActivitiesService implements OnModuleInit {
         activity.pharm_flag || false,
         activity.notes || '',
         activity.site_name,
+        activity.building_name,
         activity.service_datetime,
         activity.duration_minutes,
       ]

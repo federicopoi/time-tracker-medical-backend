@@ -13,6 +13,7 @@ export class ActivitiesController {
     console.log('Activity patient_id:', activity.patient_id);
     console.log('Activity type:', activity.activity_type);
     console.log('Activity site_name:', activity.site_name);
+    console.log("Building name:", activity.building_name);
     console.log('Activity service_datetime:', activity.service_datetime);
     console.log('Activity duration_minutes:', activity.duration_minutes);
     console.log('Activity pharm_flag:', activity.pharm_flag);
