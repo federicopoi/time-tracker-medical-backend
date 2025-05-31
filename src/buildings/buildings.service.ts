@@ -99,7 +99,7 @@ export class BuildingsService implements OnModuleInit {
         LEFT JOIN sites s ON b.site_id = s.id
       `;
       
-      const params = [];
+      const params: any[] = [];
       if (siteId) {
         query += ' WHERE b.site_id = $1';
         params.push(siteId);
