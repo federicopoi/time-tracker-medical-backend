@@ -10,8 +10,8 @@ export interface Activity {
   pharm_flag?: boolean;
   notes?: string;
   site_name: string;
-  service_datetime: Date;
   building_name?: string;
+  service_datetime: Date;
   duration_minutes: number;
 }
 
@@ -40,8 +40,18 @@ export class ActivitiesService implements OnModuleInit {
           AND constraint_schema = 'public'
         `);
         
-        if (constraintCheck.rows.length > 0) {
-          console.log('Found old site_name constraint in activities, dropping and recreating table...');
+        // Check if building_name column exists
+        const columnCheck = await pool.query(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.columns 
+            WHERE table_schema = 'public'
+            AND table_name = 'activities'
+            AND column_name = 'building_name'
+          );
+        `);
+        
+        if (constraintCheck.rows.length > 0 || !columnCheck.rows[0].exists) {
+          console.log('Found old site_name constraint or missing building_name column, dropping and recreating table...');
           await pool.query('DROP TABLE IF EXISTS activities CASCADE');
           shouldRecreateTable = true;
         }
@@ -59,7 +69,7 @@ export class ActivitiesService implements OnModuleInit {
             pharm_flag BOOLEAN,
             notes TEXT,
             site_name VARCHAR(100) NOT NULL,
-            building_name VARCHAR(100),NOT NULL,
+            building_name VARCHAR(100),
             service_datetime TIMESTAMP NOT NULL,
             duration_minutes DECIMAL(5,2) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -100,8 +110,36 @@ export class ActivitiesService implements OnModuleInit {
     } else {
       console.log('No user found with ID:', activity.user_id);
     }
+
+    // Get the patient's building information
+    console.log('Looking up patient with ID:', activity.patient_id);
+    const patientResult = await pool.query(
+      'SELECT building, site_name FROM patients WHERE id = $1',
+      [activity.patient_id]
+    );
     
-    console.log('About to insert with user_initials:', userInitials);
+    console.log('Patient query result:', patientResult.rows);
+    
+    let buildingName = activity.building_name || '';
+    let siteName = activity.site_name;
+    
+    if (patientResult.rows.length > 0) {
+      const patient = patientResult.rows[0];
+      // Use patient's building if activity doesn't have one or if it's empty
+      if (!buildingName || buildingName.trim() === '') {
+        buildingName = patient.building || '';
+      }
+      // Use patient's site_name if activity doesn't have one
+      if (!siteName || siteName.trim() === '') {
+        siteName = patient.site_name || '';
+      }
+      console.log('Using building from patient:', buildingName);
+      console.log('Using site from patient:', siteName);
+    } else {
+      console.log('No patient found with ID:', activity.patient_id);
+    }
+    
+    console.log('About to insert with user_initials:', userInitials, 'and building_name:', buildingName);
     
     const result = await pool.query(
       `INSERT INTO activities (
@@ -115,8 +153,8 @@ export class ActivitiesService implements OnModuleInit {
         userInitials,
         activity.pharm_flag || false,
         activity.notes || '',
-        activity.site_name,
-        activity.building_name,
+        siteName,
+        buildingName,
         activity.service_datetime,
         activity.duration_minutes,
       ]
