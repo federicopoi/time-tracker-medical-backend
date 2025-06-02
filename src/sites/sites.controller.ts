@@ -65,46 +65,14 @@ export class SitesController {
     }
   }
 
-  // Optimized endpoint: Get site with all details (buildings, users, patient counts)
-  @Get(':id/with-all-details')
-  async getSiteWithAllDetails(@Param('id') id: string) {
+  // Get all sites with their building names
+  @Get('sites-and-buildings')
+  async getSitesAndBuildings() {
     try {
-      const site = await this.sitesService.getSiteWithAllDetails(parseInt(id));
-      if (!site) {
-        throw new HttpException('Site not found', HttpStatus.NOT_FOUND);
-      }
-      return site;
+      return await this.sitesService.getSitesAndBuildings();
     } catch (error) {
-      if (error instanceof HttpException) throw error;
-      console.error('Error in getSiteWithAllDetails controller:', error);
-      throw new HttpException('Failed to fetch site with all details', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  // Optimized endpoint: Get site by name with all details
-  @Get('name/:siteName/with-all-details')
-  async getSiteByNameWithAllDetails(@Param('siteName') siteName: string) {
-    try {
-      const site = await this.sitesService.getSiteByNameWithAllDetails(siteName);
-      if (!site) {
-        throw new HttpException('Site not found', HttpStatus.NOT_FOUND);
-      }
-      return site;
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      console.error('Error in getSiteByNameWithAllDetails controller:', error);
-      throw new HttpException('Failed to fetch site by name with all details', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  // Optimized endpoint: Get all sites with summary statistics
-  @Get('with-summary-stats/all')
-  async getSitesWithSummaryStats() {
-    try {
-      return await this.sitesService.getSitesWithSummaryStats();
-    } catch (error) {
-      console.error('Error in getSitesWithSummaryStats controller:', error);
-      throw new HttpException('Failed to fetch sites with summary stats', HttpStatus.INTERNAL_SERVER_ERROR);
+      console.error('Error in getSitesAndBuildings controller:', error);
+      throw new HttpException('Failed to fetch sites and buildings', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 } 
