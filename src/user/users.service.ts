@@ -215,12 +215,12 @@ export class UsersService implements OnModuleInit {
         WITH user_assigned_sites AS (
           SELECT 
             u.id as user_id,
-            ARRAY_AGG(
+            to_json(ARRAY_AGG(
               json_build_object(
                 'id', s_assigned.id,
                 'name', s_assigned.name
               )
-            ) FILTER (WHERE s_assigned.id IS NOT NULL) as assigned_sites_details
+            ) FILTER (WHERE s_assigned.id IS NOT NULL)) as assigned_sites_details
           FROM users u
           LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
           LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
@@ -268,12 +268,12 @@ export class UsersService implements OnModuleInit {
         WITH user_assigned_sites AS (
           SELECT 
             u.id as user_id,
-            ARRAY_AGG(
+            to_json(ARRAY_AGG(
               json_build_object(
                 'id', s_assigned.id,
                 'name', s_assigned.name
               )
-            ) FILTER (WHERE s_assigned.id IS NOT NULL) as assigned_sites_details
+            ) FILTER (WHERE s_assigned.id IS NOT NULL)) as assigned_sites_details
           FROM users u
           LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
           LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
@@ -399,12 +399,12 @@ export class UsersService implements OnModuleInit {
         WITH user_assigned_sites AS (
           SELECT 
             u.id as user_id,
-            ARRAY_AGG(
+            to_json(ARRAY_AGG(
               json_build_object(
                 'id', s_assigned.id,
                 'name', s_assigned.name
               )
-            ) FILTER (WHERE s_assigned.id IS NOT NULL) as assigned_sites_details
+            ) FILTER (WHERE s_assigned.id IS NOT NULL)) as assigned_sites_details
           FROM users u
           LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
           LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
