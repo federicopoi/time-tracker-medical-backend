@@ -23,6 +23,17 @@ export class SitesController {
     }
   }
 
+  // Get all sites with their building names
+  @Get('sites-and-buildings')
+  async getSitesAndBuildings() {
+    try {
+      return await this.sitesService.getSitesAndBuildings();
+    } catch (error) {
+      console.error('Error in getSitesAndBuildings controller:', error);
+      throw new HttpException('Failed to fetch sites and buildings', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   @Get(':id')
   async getSiteById(@Param('id') id: string) {
     try {
@@ -62,17 +73,6 @@ export class SitesController {
       return { message: 'Site deleted successfully' };
     } catch (error) {
       throw new HttpException('Failed to delete site', HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  // Get all sites with their building names
-  @Get('sites-and-buildings')
-  async getSitesAndBuildings() {
-    try {
-      return await this.sitesService.getSitesAndBuildings();
-    } catch (error) {
-      console.error('Error in getSitesAndBuildings controller:', error);
-      throw new HttpException('Failed to fetch sites and buildings', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 } 
