@@ -279,4 +279,47 @@ export class PatientsService implements OnModuleInit {
       throw error;
     }
   }
+
+  // Get patients by site ID (converts site ID to site name first)
+  async getPatientsBySiteId(siteId: number): Promise<any[]> {
+    try {
+      console.log('Fetching patients for site ID:', siteId);
+      
+      // First get the site name from the site ID
+      const siteResult = await pool.query('SELECT name FROM sites WHERE id = $1', [siteId]);
+      if (siteResult.rows.length === 0) {
+        throw new Error(`Site with ID ${siteId} not found`);
+      }
+      
+      const siteName = siteResult.rows[0].name;
+      console.log('Site name for ID', siteId, ':', siteName);
+      
+      // Now get patients for this site with activity counts
+      const result = await pool.query(`
+        SELECT 
+          p.*,
+          COUNT(a.id) as activity_count,
+          MAX(a.service_datetime) as last_activity_date,
+          s.id as site_id,
+          s.name as site_name,
+          s.address as site_address,
+          s.city as site_city,
+          s.state as site_state,
+          s.zip as site_zip,
+          s.is_active as site_is_active
+        FROM patients p
+        LEFT JOIN activities a ON p.id = a.patient_id
+        LEFT JOIN sites s ON s.name = p.site_name
+        WHERE p.site_name = $1
+        GROUP BY p.id, s.id, s.name, s.address, s.city, s.state, s.zip, s.is_active
+        ORDER BY p.last_name, p.first_name
+      `, [siteName]);
+      
+      console.log(`Found ${result.rows.length} patients for site ID ${siteId}`);
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching patients by site ID:', error);
+      throw error;
+    }
+  }
 }

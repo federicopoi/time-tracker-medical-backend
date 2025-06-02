@@ -10,8 +10,8 @@ export interface User {
   password: string;
   created_at?: Date;
   role: "admin" | "nurse" | "pharmacist";
-  assignedsites:string[];
-  primarysite:string;
+  assignedsites_ids:number[];
+  primarysite_id:number;
 }
 
 @Injectable()
@@ -19,7 +19,7 @@ export class UsersService implements OnModuleInit {
   private readonly SALT_ROUNDS = 10;
 
   async onModuleInit() {
-    // gonig to check if table exist
+    // going to check if table exist
     try {
       const tableCheck = await pool.query(`
         SELECT EXISTS (
@@ -41,11 +41,90 @@ export class UsersService implements OnModuleInit {
             password VARCHAR(255) NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'nurse', 'pharmacist')),
-            primarysite VARCHAR(50) NOT NULL,
-            assignedsites TEXT[] NOT NULL DEFAULT '{}'
+            primarysite_id INTEGER NOT NULL,
+            assignedsites_ids INTEGER[] NOT NULL DEFAULT '{}',
+            CONSTRAINT fk_primarysite
+              FOREIGN KEY (primarysite_id)
+              REFERENCES sites(id)
+              ON DELETE CASCADE
           );
         `);
         console.log("Users table created successfully");
+      } else {
+        // Check if we need to migrate from old schema
+        const columnCheck = await pool.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'users' 
+          AND column_name IN ('primarysite', 'assignedsites', 'primarysite_id', 'assignedsites_ids')
+        `);
+        
+        const hasOldColumns = columnCheck.rows.some(row => 
+          row.column_name === 'primarysite' || row.column_name === 'assignedsites'
+        );
+        const hasNewColumns = columnCheck.rows.some(row => 
+          row.column_name === 'primarysite_id' || row.column_name === 'assignedsites_ids'
+        );
+
+        if (hasOldColumns && !hasNewColumns) {
+          console.log('Migrating users table to use site IDs...');
+          
+          // Add new columns
+          await pool.query(`
+            ALTER TABLE users 
+            ADD COLUMN primarysite_id INTEGER,
+            ADD COLUMN assignedsites_ids INTEGER[] DEFAULT '{}'
+          `);
+          
+          // Migrate data from site names to site IDs
+          await pool.query(`
+            UPDATE users 
+            SET primarysite_id = (SELECT id FROM sites WHERE name = users.primarysite)
+            WHERE primarysite_id IS NULL
+          `);
+
+          // Update assignedsites_ids with site IDs
+          const usersWithAssignedSites = await pool.query(`
+            SELECT id, assignedsites FROM users WHERE assignedsites IS NOT NULL
+          `);
+          
+          for (const user of usersWithAssignedSites.rows) {
+            if (user.assignedsites && user.assignedsites.length > 0) {
+              const siteIds: number[] = [];
+              for (const siteName of user.assignedsites) {
+                const siteResult = await pool.query('SELECT id FROM sites WHERE name = $1', [siteName]);
+                if (siteResult.rows.length > 0) {
+                  siteIds.push(siteResult.rows[0].id);
+                }
+              }
+              if (siteIds.length > 0) {
+                await pool.query(
+                  'UPDATE users SET assignedsites_ids = $1 WHERE id = $2',
+                  [siteIds, user.id]
+                );
+              }
+            }
+          }
+
+          // Make primarysite_id NOT NULL and add foreign key
+          await pool.query(`
+            ALTER TABLE users 
+            ALTER COLUMN primarysite_id SET NOT NULL,
+            ADD CONSTRAINT fk_primarysite
+              FOREIGN KEY (primarysite_id)
+              REFERENCES sites(id)
+              ON DELETE CASCADE
+          `);
+
+          // Drop old columns
+          await pool.query(`
+            ALTER TABLE users 
+            DROP COLUMN primarysite,
+            DROP COLUMN assignedsites
+          `);
+          
+          console.log('Users table migration completed');
+        }
       }
     } catch (error) {
       console.error("Error checking/creating users table", error);
@@ -85,7 +164,7 @@ export class UsersService implements OnModuleInit {
       console.log("Attempting to create user with data", { ...user, password: '***' });
       
       // Validate required fields
-      if (!user.first_name || !user.last_name || !user.email || !user.password || !user.role || !user.primarysite || !user.assignedsites) {
+      if (!user.first_name || !user.last_name || !user.email || !user.password || !user.role || !user.primarysite_id || !user.assignedsites_ids) {
         throw new Error('Missing required fields');
       }
 
@@ -95,12 +174,12 @@ export class UsersService implements OnModuleInit {
       // Hash the password
       const hashedPassword = await bcrypt.hash(user.password, this.SALT_ROUNDS);
 
-      // Ensure assignedsites is an array
-      const assignedsites = Array.isArray(user.assignedsites) ? user.assignedsites : [user.assignedsites];
+      // Ensure assignedsites_ids is an array
+      const assignedsites_ids = Array.isArray(user.assignedsites_ids) ? user.assignedsites_ids : [user.assignedsites_ids];
 
       const result = await pool.query(
         `INSERT INTO users (
-          first_name, last_name, email, password, role, primarysite, assignedsites
+          first_name, last_name, email, password, role, primarysite_id, assignedsites_ids
         ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
         [
           user.first_name,
@@ -108,8 +187,8 @@ export class UsersService implements OnModuleInit {
           normalizedEmail,
           hashedPassword,
           user.role,
-          user.primarysite,
-          assignedsites
+          user.primarysite_id,
+          assignedsites_ids
         ]
       );
       
@@ -137,7 +216,7 @@ export class UsersService implements OnModuleInit {
   async getUserById(id: number): Promise<User | null> {
     try {
       const result = await pool.query(
-        "SELECT id, first_name, last_name, email, role, primarysite, assignedsites FROM users WHERE id = $1",
+        "SELECT id, first_name, last_name, email, role, primarysite_id, assignedsites_ids FROM users WHERE id = $1",
         [id]
       );
       return result.rows[0] || null;
@@ -191,6 +270,15 @@ export class UsersService implements OnModuleInit {
   async getUsersBySiteWithDetails(siteName: string): Promise<any[]> {
     try {
       console.log('Fetching users for site with details:', siteName);
+      
+      // First get the site ID from the site name
+      const siteResult = await pool.query('SELECT id FROM sites WHERE name = $1', [siteName]);
+      if (siteResult.rows.length === 0) {
+        throw new Error(`Site with name ${siteName} not found`);
+      }
+      
+      const siteId = siteResult.rows[0].id;
+      
       const result = await pool.query(`
         SELECT 
           u.*,
@@ -202,15 +290,44 @@ export class UsersService implements OnModuleInit {
           s.zip as site_zip,
           s.is_active as site_is_active
         FROM users u
-        LEFT JOIN sites s ON s.name = u.primarysite
-        WHERE u.primarysite = $1 OR $1 = ANY(u.assignedsites)
+        LEFT JOIN sites s ON s.id = u.primarysite_id
+        WHERE u.primarysite_id = $1 OR $1 = ANY(u.assignedsites_ids)
         ORDER BY u.last_name, u.first_name
-      `, [siteName]);
+      `, [siteId]);
       
       console.log(`Found ${result.rows.length} users for site ${siteName}`);
       return result.rows;
     } catch (error) {
       console.error('Error fetching users by site with details:', error);
+      throw error;
+    }
+  }
+
+  async getUsersBySiteId(siteId: number): Promise<any[]> {
+    try {
+      console.log('Fetching users for site ID:', siteId);
+      
+      // Simplified query - no need to convert site ID to site name anymore!
+      const result = await pool.query(`
+        SELECT 
+          u.*,
+          s.id as site_id,
+          s.name as site_name,
+          s.address as site_address,
+          s.city as site_city,
+          s.state as site_state,
+          s.zip as site_zip,
+          s.is_active as site_is_active
+        FROM users u
+        LEFT JOIN sites s ON s.id = u.primarysite_id
+        WHERE u.primarysite_id = $1 OR $1 = ANY(u.assignedsites_ids)
+        ORDER BY u.last_name, u.first_name
+      `, [siteId]);
+      
+      console.log(`Found ${result.rows.length} users for site ID ${siteId}`);
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching users by site ID:', error);
       throw error;
     }
   }
@@ -229,7 +346,7 @@ export class UsersService implements OnModuleInit {
           s.zip as primary_site_zip,
           s.is_active as primary_site_is_active
         FROM users u
-        LEFT JOIN sites s ON s.name = u.primarysite
+        LEFT JOIN sites s ON s.id = u.primarysite_id
         ORDER BY u.last_name, u.first_name
       `);
       
@@ -254,7 +371,7 @@ export class UsersService implements OnModuleInit {
           s.zip as primary_site_zip,
           s.is_active as primary_site_is_active
         FROM users u
-        LEFT JOIN sites s ON s.name = u.primarysite
+        LEFT JOIN sites s ON s.id = u.primarysite_id
         WHERE u.id = $1
       `, [id]);
       

@@ -101,4 +101,15 @@ export class PatientsController {
       throw new HttpException('Failed to fetch patients by site with activity counts', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  // Get patients by site ID
+  @Get('site-id/:siteId')
+  async getPatientsBySiteId(@Param('siteId') siteId: string) {
+    try {
+      return await this.patientsService.getPatientsBySiteId(parseInt(siteId));
+    } catch (error) {
+      console.error('Error in getPatientsBySiteId controller:', error);
+      throw new HttpException('Failed to fetch patients by site ID', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

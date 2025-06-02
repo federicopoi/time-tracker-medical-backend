@@ -87,6 +87,17 @@ export class UsersController {
         }
     }
 
+    // Get users by site ID
+    @Get('site-id/:siteId')
+    async getUsersBySiteId(@Param('siteId') siteId: string) {
+        try {
+            return await this.usersService.getUsersBySiteId(parseInt(siteId));
+        } catch (error) {
+            console.error('Error in getUsersBySiteId controller:', error);
+            throw new HttpException('Failed to fetch users by site ID', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     // Optimized endpoint: Get all users with site details
     @Get('with-site-details')
     async getUsersWithSiteDetails() {

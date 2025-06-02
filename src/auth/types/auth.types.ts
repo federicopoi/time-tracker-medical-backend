@@ -6,8 +6,8 @@ export interface AuthResponse {
     last_name: string;
     email: string;
     role: string;
-    primarysite: string;
-    assignedsites: string[];
+    primarysite_id: number;
+    assignedsites_ids: number[];
     created_at?: Date;
   }
 }
