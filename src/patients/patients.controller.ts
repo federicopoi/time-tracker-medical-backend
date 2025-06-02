@@ -103,11 +103,16 @@ export class PatientsController {
   }
 
   // Get patients by site ID
-  @Get('site-id/:siteId')
+  @Get('site/:siteId')
   async getPatientsBySiteId(@Param('siteId') siteId: string) {
     try {
-      return await this.patientsService.getPatientsBySiteId(parseInt(siteId));
+      const parsedSiteId = parseInt(siteId);
+      if (isNaN(parsedSiteId)) {
+        throw new HttpException('Invalid site ID provided', HttpStatus.BAD_REQUEST);
+      }
+      return await this.patientsService.getPatientsBySiteId(parsedSiteId);
     } catch (error) {
+      if (error instanceof HttpException) throw error;
       console.error('Error in getPatientsBySiteId controller:', error);
       throw new HttpException('Failed to fetch patients by site ID', HttpStatus.INTERNAL_SERVER_ERROR);
     }

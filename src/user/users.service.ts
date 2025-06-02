@@ -207,18 +207,105 @@ export class UsersService implements OnModuleInit {
   }
 
   async getUsers(): Promise<User[]> {
-    const result = await pool.query(
-      `SELECT * FROM users ORDER BY created_at DESC`
-    );
-    return result.rows;
+    try {
+      console.log('Fetching all users with site details');
+      
+      // Enhanced query to get all users with primary site and assigned site names
+      const result = await pool.query(`
+        WITH user_assigned_sites AS (
+          SELECT 
+            u.id as user_id,
+            ARRAY_AGG(
+              json_build_object(
+                'id', s_assigned.id,
+                'name', s_assigned.name
+              )
+            ) FILTER (WHERE s_assigned.id IS NOT NULL) as assigned_sites_details
+          FROM users u
+          LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
+          LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
+          GROUP BY u.id
+        )
+        SELECT 
+          u.id,
+          u.first_name,
+          u.last_name,
+          u.email,
+          u.role,
+          u.primarysite_id,
+          u.assignedsites_ids,
+          u.created_at,
+          -- Primary site details
+          s_primary.id as primary_site_id,
+          s_primary.name as primary_site_name,
+          s_primary.address as primary_site_address,
+          s_primary.city as primary_site_city,
+          s_primary.state as primary_site_state,
+          s_primary.zip as primary_site_zip,
+          s_primary.is_active as primary_site_is_active,
+          -- Assigned sites details
+          COALESCE(uas.assigned_sites_details, '[]'::json) as assigned_sites_details
+        FROM users u
+        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
+        LEFT JOIN user_assigned_sites uas ON uas.user_id = u.id
+        ORDER BY u.created_at DESC
+      `);
+      
+      console.log(`Found ${result.rows.length} users with site details`);
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching users with site details:', error);
+      throw error;
+    }
   }
 
   async getUserById(id: number): Promise<User | null> {
     try {
-      const result = await pool.query(
-        "SELECT id, first_name, last_name, email, role, primarysite_id, assignedsites_ids FROM users WHERE id = $1",
-        [id]
-      );
+      console.log('Fetching user by ID with site details:', id);
+      
+      // Enhanced query to get user with primary site and assigned site names
+      const result = await pool.query(`
+        WITH user_assigned_sites AS (
+          SELECT 
+            u.id as user_id,
+            ARRAY_AGG(
+              json_build_object(
+                'id', s_assigned.id,
+                'name', s_assigned.name
+              )
+            ) FILTER (WHERE s_assigned.id IS NOT NULL) as assigned_sites_details
+          FROM users u
+          LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
+          LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
+          WHERE u.id = $1
+          GROUP BY u.id
+        )
+        SELECT 
+          u.id,
+          u.first_name,
+          u.last_name,
+          u.email,
+          u.role,
+          u.primarysite_id,
+          u.assignedsites_ids,
+          u.created_at,
+          -- Primary site details
+          s_primary.id as primary_site_id,
+          s_primary.name as primary_site_name,
+          s_primary.address as primary_site_address,
+          s_primary.city as primary_site_city,
+          s_primary.state as primary_site_state,
+          s_primary.zip as primary_site_zip,
+          s_primary.is_active as primary_site_is_active,
+          -- Assigned sites details
+          COALESCE(uas.assigned_sites_details, '[]'::json) as assigned_sites_details
+        FROM users u
+        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
+        LEFT JOIN user_assigned_sites uas ON uas.user_id = u.id
+        WHERE u.id = $1
+      `, [id]);
+      
+      console.log('Found user:', result.rows[0] ? 'Yes' : 'No');
       return result.rows[0] || null;
     } catch (error) {
       console.error("Error finding user:", error);
@@ -307,19 +394,44 @@ export class UsersService implements OnModuleInit {
     try {
       console.log('Fetching users for site ID:', siteId);
       
-      // Simplified query - no need to convert site ID to site name anymore!
+      // Enhanced query to get users with primary site and all assigned site names
       const result = await pool.query(`
+        WITH user_assigned_sites AS (
+          SELECT 
+            u.id as user_id,
+            ARRAY_AGG(
+              json_build_object(
+                'id', s_assigned.id,
+                'name', s_assigned.name
+              )
+            ) FILTER (WHERE s_assigned.id IS NOT NULL) as assigned_sites_details
+          FROM users u
+          LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
+          LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
+          GROUP BY u.id
+        )
         SELECT 
-          u.*,
-          s.id as site_id,
-          s.name as site_name,
-          s.address as site_address,
-          s.city as site_city,
-          s.state as site_state,
-          s.zip as site_zip,
-          s.is_active as site_is_active
+          u.id,
+          u.first_name,
+          u.last_name,
+          u.email,
+          u.role,
+          u.primarysite_id,
+          u.assignedsites_ids,
+          u.created_at,
+          -- Primary site details
+          s_primary.id as primary_site_id,
+          s_primary.name as primary_site_name,
+          s_primary.address as primary_site_address,
+          s_primary.city as primary_site_city,
+          s_primary.state as primary_site_state,
+          s_primary.zip as primary_site_zip,
+          s_primary.is_active as primary_site_is_active,
+          -- Assigned sites details
+          COALESCE(uas.assigned_sites_details, '[]'::json) as assigned_sites_details
         FROM users u
-        LEFT JOIN sites s ON s.id = u.primarysite_id
+        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
+        LEFT JOIN user_assigned_sites uas ON uas.user_id = u.id
         WHERE u.primarysite_id = $1 OR $1 = ANY(u.assignedsites_ids)
         ORDER BY u.last_name, u.first_name
       `, [siteId]);

@@ -53,11 +53,26 @@ export class BuildingsService implements OnModuleInit {
   }
 
   async getBuildingsBySiteId(siteId: number): Promise<Building[]> {
-    const result = await pool.query(
-      'SELECT * FROM buildings WHERE site_id = $1 ORDER BY name ASC',
-      [siteId]
-    );
-    return result.rows;
+    try {
+      console.log('Fetching buildings for site ID:', siteId);
+      const result = await pool.query(
+        `SELECT 
+          id,
+          name,
+          site_id,
+          is_active,
+          created_at
+        FROM buildings 
+        WHERE site_id = $1 
+        ORDER BY name ASC`,
+        [siteId]
+      );
+      console.log(`Found ${result.rows.length} buildings for site ID ${siteId}`);
+      return result.rows;
+    } catch (error) {
+      console.error('Error fetching buildings by site ID:', error);
+      throw error;
+    }
   }
 
   async getBuildingById(id: number): Promise<Building> {

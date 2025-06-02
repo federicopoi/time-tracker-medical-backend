@@ -27,8 +27,13 @@ export class BuildingsController {
   @Get('site/:siteId')
   async getBuildingsBySiteId(@Param('siteId') siteId: string) {
     try {
-      return await this.buildingsService.getBuildingsBySiteId(parseInt(siteId));
+      const parsedSiteId = parseInt(siteId);
+      if (isNaN(parsedSiteId)) {
+        throw new HttpException('Invalid site ID provided', HttpStatus.BAD_REQUEST);
+      }
+      return await this.buildingsService.getBuildingsBySiteId(parsedSiteId);
     } catch (error) {
+      if (error instanceof HttpException) throw error;
       throw new HttpException('Failed to fetch buildings for site', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }

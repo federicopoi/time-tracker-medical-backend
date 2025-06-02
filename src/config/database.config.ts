@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://tracking_time_db_user:1LC8xedIfsrRJcaYaqBoZYyRTFBUgm9V@dpg-d0fg0ds9c44c73bbhbr0-a.oregon-postgres.render.com/tracking_time_db',
+  connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_VtEe7diyIOT4@ep-divine-cell-a8xo5x52-pooler.eastus2.azure.neon.tech/neondb?sslmode=require',
   ssl: {
     rejectUnauthorized: false
   }
