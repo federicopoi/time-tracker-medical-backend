@@ -19,7 +19,6 @@ export class UsersService implements OnModuleInit {
   private readonly SALT_ROUNDS = 10;
 
   async onModuleInit() {
-    // going to check if table exist
     try {
       const tableCheck = await pool.query(`
         SELECT EXISTS (
@@ -28,10 +27,8 @@ export class UsersService implements OnModuleInit {
           AND table_name = 'users'
         )  
       `);
-      console.log("Users table exists:", tableCheck.rows[0].exists);
 
       if (!tableCheck.rows[0].exists) {
-        console.log("Creating users table...");
         await pool.query(`
           CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -49,9 +46,7 @@ export class UsersService implements OnModuleInit {
               ON DELETE CASCADE
           );
         `);
-        console.log("Users table created successfully");
       } else {
-        // Check if we need to migrate from old schema
         const columnCheck = await pool.query(`
           SELECT column_name 
           FROM information_schema.columns 
@@ -67,23 +62,18 @@ export class UsersService implements OnModuleInit {
         );
 
         if (hasOldColumns && !hasNewColumns) {
-          console.log('Migrating users table to use site IDs...');
-          
-          // Add new columns
           await pool.query(`
             ALTER TABLE users 
             ADD COLUMN primarysite_id INTEGER,
             ADD COLUMN assignedsites_ids INTEGER[] DEFAULT '{}'
           `);
           
-          // Migrate data from site names to site IDs
           await pool.query(`
             UPDATE users 
             SET primarysite_id = (SELECT id FROM sites WHERE name = users.primarysite)
             WHERE primarysite_id IS NULL
           `);
 
-          // Update assignedsites_ids with site IDs
           const usersWithAssignedSites = await pool.query(`
             SELECT id, assignedsites FROM users WHERE assignedsites IS NOT NULL
           `);
@@ -106,7 +96,6 @@ export class UsersService implements OnModuleInit {
             }
           }
 
-          // Make primarysite_id NOT NULL and add foreign key
           await pool.query(`
             ALTER TABLE users 
             ALTER COLUMN primarysite_id SET NOT NULL,
@@ -116,25 +105,20 @@ export class UsersService implements OnModuleInit {
               ON DELETE CASCADE
           `);
 
-          // Drop old columns
           await pool.query(`
             ALTER TABLE users 
             DROP COLUMN primarysite,
             DROP COLUMN assignedsites
           `);
-          
-          console.log('Users table migration completed');
         }
       }
     } catch (error) {
-      console.error("Error checking/creating users table", error);
+      throw error;
     }
   }
 
-  // check if user exist for auth 
   async findOne(email: string, password: string): Promise<User | null> {
     try {
-      // Normalize email to lowercase for case-insensitive comparison
       const normalizedEmail = email.toLowerCase();
       
       const result = await pool.query(
@@ -154,27 +138,18 @@ export class UsersService implements OnModuleInit {
 
       return user;
     } catch (error) {
-      console.error("Error finding user:", error);
       throw error;
     }
   }
 
   async createUser(user: User): Promise<User> {
     try {
-      console.log("Attempting to create user with data", { ...user, password: '***' });
-      
-      // Validate required fields
       if (!user.first_name || !user.last_name || !user.email || !user.password || !user.role || !user.primarysite_id || !user.assignedsites_ids) {
         throw new Error('Missing required fields');
       }
 
-      // Normalize email to lowercase for consistency
       const normalizedEmail = user.email.toLowerCase();
-
-      // Hash the password
       const hashedPassword = await bcrypt.hash(user.password, this.SALT_ROUNDS);
-
-      // Ensure assignedsites_ids is an array
       const assignedsites_ids = Array.isArray(user.assignedsites_ids) ? user.assignedsites_ids : [user.assignedsites_ids];
 
       const result = await pool.query(
@@ -192,11 +167,8 @@ export class UsersService implements OnModuleInit {
         ]
       );
       
-      const createdUser = result.rows[0];
-      console.log("User created successfully: ", { ...createdUser, password: '***' });
-      return createdUser;
+      return result.rows[0];
     } catch (error) {
-      console.error("Error creating user:", error);
       if (error.code === '23505') {
         throw new Error('Email already exists');
       } else if (error.code === '22P02') {
@@ -206,74 +178,43 @@ export class UsersService implements OnModuleInit {
     }
   }
 
-  async getUsers(): Promise<User[]> {
+  async getUsers(): Promise<any[]> {
     try {
-      console.log('Fetching all users with site details');
-      
-      // Enhanced query to get all users with primary site and assigned site names
       const result = await pool.query(`
-        WITH user_assigned_sites AS (
+        WITH assigned_sites_agg AS (
           SELECT 
             u.id as user_id,
-            to_json(ARRAY_AGG(
-              json_build_object(
-                'id', s_assigned.id,
-                'name', s_assigned.name
-              )
-            ) FILTER (WHERE s_assigned.id IS NOT NULL)) as assigned_sites_details
+            ARRAY_AGG(s_assigned.name) FILTER (WHERE s_assigned.name IS NOT NULL) as assigned_sites_names
           FROM users u
           LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
           LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
           GROUP BY u.id
         )
         SELECT 
-          u.id,
-          u.first_name,
-          u.last_name,
+          CONCAT(u.first_name, ' ', u.last_name) as name,
           u.email,
           u.role,
-          u.primarysite_id,
-          u.assignedsites_ids,
-          u.created_at,
-          -- Primary site details
-          s_primary.id as primary_site_id,
-          s_primary.name as primary_site_name,
-          s_primary.address as primary_site_address,
-          s_primary.city as primary_site_city,
-          s_primary.state as primary_site_state,
-          s_primary.zip as primary_site_zip,
-          s_primary.is_active as primary_site_is_active,
-          -- Assigned sites details
-          COALESCE(uas.assigned_sites_details, '[]'::json) as assigned_sites_details
+          s_primary.name as primary_site,
+          COALESCE(asa.assigned_sites_names, ARRAY[]::text[]) as assigned_sites
         FROM users u
         LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
-        LEFT JOIN user_assigned_sites uas ON uas.user_id = u.id
-        ORDER BY u.created_at DESC
+        LEFT JOIN assigned_sites_agg asa ON asa.user_id = u.id
+        ORDER BY u.last_name, u.first_name
       `);
       
-      console.log(`Found ${result.rows.length} users with site details`);
       return result.rows;
     } catch (error) {
-      console.error('Error fetching users with site details:', error);
       throw error;
     }
   }
 
-  async getUserById(id: number): Promise<User | null> {
+  async getUserById(id: number): Promise<any | null> {
     try {
-      console.log('Fetching user by ID with site details:', id);
-      
-      // Enhanced query to get user with primary site and assigned site names
       const result = await pool.query(`
-        WITH user_assigned_sites AS (
+        WITH assigned_sites_agg AS (
           SELECT 
             u.id as user_id,
-            to_json(ARRAY_AGG(
-              json_build_object(
-                'id', s_assigned.id,
-                'name', s_assigned.name
-              )
-            ) FILTER (WHERE s_assigned.id IS NOT NULL)) as assigned_sites_details
+            ARRAY_AGG(s_assigned.name) FILTER (WHERE s_assigned.name IS NOT NULL) as assigned_sites_names
           FROM users u
           LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
           LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
@@ -281,34 +222,19 @@ export class UsersService implements OnModuleInit {
           GROUP BY u.id
         )
         SELECT 
-          u.id,
-          u.first_name,
-          u.last_name,
+          CONCAT(u.first_name, ' ', u.last_name) as name,
           u.email,
           u.role,
-          u.primarysite_id,
-          u.assignedsites_ids,
-          u.created_at,
-          -- Primary site details
-          s_primary.id as primary_site_id,
-          s_primary.name as primary_site_name,
-          s_primary.address as primary_site_address,
-          s_primary.city as primary_site_city,
-          s_primary.state as primary_site_state,
-          s_primary.zip as primary_site_zip,
-          s_primary.is_active as primary_site_is_active,
-          -- Assigned sites details
-          COALESCE(uas.assigned_sites_details, '[]'::json) as assigned_sites_details
+          s_primary.name as primary_site,
+          COALESCE(asa.assigned_sites_names, ARRAY[]::text[]) as assigned_sites
         FROM users u
         LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
-        LEFT JOIN user_assigned_sites uas ON uas.user_id = u.id
+        LEFT JOIN assigned_sites_agg asa ON asa.user_id = u.id
         WHERE u.id = $1
       `, [id]);
       
-      console.log('Found user:', result.rows[0] ? 'Yes' : 'No');
       return result.rows[0] || null;
     } catch (error) {
-      console.error("Error finding user:", error);
       throw error;
     }
   }
@@ -319,12 +245,11 @@ export class UsersService implements OnModuleInit {
 
   async updateUser(id: number, user: Partial<User>): Promise<User> {
     try {
-      const currentUser = await this.getUserById(id);
-      if (!currentUser) {
+      const currentUser = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+      if (currentUser.rows.length === 0) {
         throw new Error("User not found");
       }
 
-      // Normalize email to lowercase if it's being updated
       if (user.email) {
         user.email = user.email.toLowerCase();
       }
@@ -344,152 +269,41 @@ export class UsersService implements OnModuleInit {
     `;
       const result = await pool.query(query, [...values, id]);
       if (result.rows.length === 0) {
-        throw new Error("Failed to users patient");
+        throw new Error("Failed to update user");
       }
       return result.rows[0];
     } catch (error) {
-      console.error("Error updating user:", error);
-      throw error;
-    }
-  }
-
-  // Optimized query: Get users by site with site details using LEFT JOIN
-  async getUsersBySiteWithDetails(siteName: string): Promise<any[]> {
-    try {
-      console.log('Fetching users for site with details:', siteName);
-      
-      // First get the site ID from the site name
-      const siteResult = await pool.query('SELECT id FROM sites WHERE name = $1', [siteName]);
-      if (siteResult.rows.length === 0) {
-        throw new Error(`Site with name ${siteName} not found`);
-      }
-      
-      const siteId = siteResult.rows[0].id;
-      
-      const result = await pool.query(`
-        SELECT 
-          u.*,
-          s.id as site_id,
-          s.name as site_name,
-          s.address as site_address,
-          s.city as site_city,
-          s.state as site_state,
-          s.zip as site_zip,
-          s.is_active as site_is_active
-        FROM users u
-        LEFT JOIN sites s ON s.id = u.primarysite_id
-        WHERE u.primarysite_id = $1 OR $1 = ANY(u.assignedsites_ids)
-        ORDER BY u.last_name, u.first_name
-      `, [siteId]);
-      
-      console.log(`Found ${result.rows.length} users for site ${siteName}`);
-      return result.rows;
-    } catch (error) {
-      console.error('Error fetching users by site with details:', error);
       throw error;
     }
   }
 
   async getUsersBySiteId(siteId: number): Promise<any[]> {
     try {
-      console.log('Fetching users for site ID:', siteId);
-      
-      // Enhanced query to get users with primary site and all assigned site names
       const result = await pool.query(`
-        WITH user_assigned_sites AS (
+        WITH assigned_sites_agg AS (
           SELECT 
             u.id as user_id,
-            to_json(ARRAY_AGG(
-              json_build_object(
-                'id', s_assigned.id,
-                'name', s_assigned.name
-              )
-            ) FILTER (WHERE s_assigned.id IS NOT NULL)) as assigned_sites_details
+            ARRAY_AGG(s_assigned.name) FILTER (WHERE s_assigned.name IS NOT NULL) as assigned_sites_names
           FROM users u
           LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
           LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
           GROUP BY u.id
         )
         SELECT 
-          u.id,
-          u.first_name,
-          u.last_name,
+          CONCAT(u.first_name, ' ', u.last_name) as name,
           u.email,
           u.role,
-          u.primarysite_id,
-          u.assignedsites_ids,
-          u.created_at,
-          -- Primary site details
-          s_primary.id as primary_site_id,
-          s_primary.name as primary_site_name,
-          s_primary.address as primary_site_address,
-          s_primary.city as primary_site_city,
-          s_primary.state as primary_site_state,
-          s_primary.zip as primary_site_zip,
-          s_primary.is_active as primary_site_is_active,
-          -- Assigned sites details
-          COALESCE(uas.assigned_sites_details, '[]'::json) as assigned_sites_details
+          s_primary.name as primary_site,
+          COALESCE(asa.assigned_sites_names, ARRAY[]::text[]) as assigned_sites
         FROM users u
         LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
-        LEFT JOIN user_assigned_sites uas ON uas.user_id = u.id
+        LEFT JOIN assigned_sites_agg asa ON asa.user_id = u.id
         WHERE u.primarysite_id = $1 OR $1 = ANY(u.assignedsites_ids)
         ORDER BY u.last_name, u.first_name
       `, [siteId]);
       
-      console.log(`Found ${result.rows.length} users for site ID ${siteId}`);
       return result.rows;
     } catch (error) {
-      console.error('Error fetching users by site ID:', error);
-      throw error;
-    }
-  }
-
-  // Optimized query: Get all users with their site details using LEFT JOIN
-  async getUsersWithSiteDetails(): Promise<any[]> {
-    try {
-      const result = await pool.query(`
-        SELECT 
-          u.*,
-          s.id as primary_site_id,
-          s.name as primary_site_name,
-          s.address as primary_site_address,
-          s.city as primary_site_city,
-          s.state as primary_site_state,
-          s.zip as primary_site_zip,
-          s.is_active as primary_site_is_active
-        FROM users u
-        LEFT JOIN sites s ON s.id = u.primarysite_id
-        ORDER BY u.last_name, u.first_name
-      `);
-      
-      return result.rows;
-    } catch (error) {
-      console.error('Error fetching users with site details:', error);
-      throw error;
-    }
-  }
-
-  // Optimized query: Get user by ID with all related site information
-  async getUserByIdWithSiteDetails(id: number): Promise<any> {
-    try {
-      const result = await pool.query(`
-        SELECT 
-          u.*,
-          s.id as primary_site_id,
-          s.name as primary_site_name,
-          s.address as primary_site_address,
-          s.city as primary_site_city,
-          s.state as primary_site_state,
-          s.zip as primary_site_zip,
-          s.is_active as primary_site_is_active
-        FROM users u
-        LEFT JOIN sites s ON s.id = u.primarysite_id
-        WHERE u.id = $1
-      `, [id]);
-      
-      return result.rows[0];
-    } catch (error) {
-      console.error('Error fetching user by ID with site details:', error);
       throw error;
     }
   }

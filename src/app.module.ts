@@ -9,9 +9,8 @@ import { BuildingsModule } from './buildings/buildings.module';
 
 @Module({
   imports: [
-   // Register DatabaseModule here
     UserModule, 
-    PatientsModule,      // Register UserModule here
+    PatientsModule,    
     ActivitiesModule, AuthModule,
     SitesModule,
     BuildingsModule

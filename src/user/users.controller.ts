@@ -4,13 +4,10 @@ import { RolesGuard } from 'src/auth/roles.guard';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
 
-
-
 // @UseGuards(AuthGuard, RolesGuard)
 @Controller('users')
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
-
 
     @Post()
     async createUser(@Body() user: User) {
@@ -24,7 +21,6 @@ export class UsersController {
             );
         }
     }
-
 
     @Get()
     async getUsers() {
@@ -52,38 +48,27 @@ export class UsersController {
     
     @Roles('Admin')
     @Put(':id')
-    async updateUser(@Param('id') id:string, @Body() user: Partial<User>){
-        try{
+    async updateUser(@Param('id') id: string, @Body() user: Partial<User>) {
+        try {
             const updatedUser = await this.usersService.updateUser(parseInt(id), user);
-            if(!updatedUser){
-                throw new HttpException('User not found',HttpStatus.NOT_FOUND);
+            if (!updatedUser) {
+                throw new HttpException('User not found', HttpStatus.NOT_FOUND);
             }
             return updatedUser;
-        }catch(error){
-            if(error instanceof HttpException) throw error;
-            
+        } catch (error) {
+            if (error instanceof HttpException) throw error;
+            throw new HttpException('Failed to update user', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @Roles('Admin')
     @Delete(':id')
-    async deleteUser(@Param('id') id:string){
-        try{
-            await this.usersService.deleteUser(parseInt(id));
-            return {message: 'User deleted successfully'};
-        }catch(error){
-            throw new HttpException('Failed to delete user',HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    // Optimized endpoint: Get users by site with site details
-    @Get('site/:siteName/details')
-    async getUsersBySiteWithDetails(@Param('siteName') siteName: string) {
+    async deleteUser(@Param('id') id: string) {
         try {
-            return await this.usersService.getUsersBySiteWithDetails(siteName);
+            await this.usersService.deleteUser(parseInt(id));
+            return { message: 'User deleted successfully' };
         } catch (error) {
-            console.error('Error in getUsersBySiteWithDetails controller:', error);
-            throw new HttpException('Failed to fetch users by site with details', HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new HttpException('Failed to delete user', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -102,32 +87,4 @@ export class UsersController {
             throw new HttpException('Failed to fetch users by site ID', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
-    // Optimized endpoint: Get all users with site details
-    @Get('with-site-details')
-    async getUsersWithSiteDetails() {
-        try {
-            return await this.usersService.getUsersWithSiteDetails();
-        } catch (error) {
-            console.error('Error in getUsersWithSiteDetails controller:', error);
-            throw new HttpException('Failed to fetch users with site details', HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    // Optimized endpoint: Get user by ID with site details
-    @Get(':id/with-site-details')
-    async getUserByIdWithSiteDetails(@Param('id') id: string) {
-        try {
-            const user = await this.usersService.getUserByIdWithSiteDetails(parseInt(id));
-            if (!user) {
-                throw new HttpException('User not found', HttpStatus.NOT_FOUND);
-            }
-            return user;
-        } catch (error) {
-            if (error instanceof HttpException) throw error;
-            console.error('Error in getUserByIdWithSiteDetails controller:', error);
-            throw new HttpException('Failed to fetch user with site details', HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
 }
