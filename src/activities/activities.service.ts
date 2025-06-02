@@ -27,7 +27,6 @@ export class ActivitiesService implements OnModuleInit {
           AND table_name = 'activities'
         );
       `);
-      console.log('Activities table exists:', tableCheck.rows[0].exists);
 
       let shouldRecreateTable = false;
 
@@ -51,14 +50,12 @@ export class ActivitiesService implements OnModuleInit {
         `);
         
         if (constraintCheck.rows.length > 0 || !columnCheck.rows[0].exists) {
-          console.log('Found old site_name constraint or missing building_name column, dropping and recreating table...');
           await pool.query('DROP TABLE IF EXISTS activities CASCADE');
           shouldRecreateTable = true;
         }
       }
 
       if (!tableCheck.rows[0].exists || shouldRecreateTable) {
-        console.log('Creating activities table...');
         await pool.query(`
           CREATE TABLE IF NOT EXISTS activities (
             id SERIAL PRIMARY KEY,
@@ -83,42 +80,30 @@ export class ActivitiesService implements OnModuleInit {
               ON DELETE CASCADE
           );
         `);
-        console.log('Activities table created successfully');
       }
     } catch (error) {
-      console.error('Error checking/creating activities table:', error);
+      throw error;
     }
   }
 
   async createActivity(activity: Activity): Promise<Activity> {
-    console.log('Creating activity with data:', activity);
-    
     // First, get the user's initials based on user_id
-    console.log('Looking up user with ID:', activity.user_id);
     const userResult = await pool.query(
       'SELECT first_name, last_name FROM users WHERE id = $1',
       [activity.user_id]
     );
     
-    console.log('User query result:', userResult.rows);
-    
     let userInitials = '';
     if (userResult.rows.length > 0) {
       const user = userResult.rows[0];
       userInitials = (user.first_name?.charAt(0) || '') + (user.last_name?.charAt(0) || '');
-      console.log('Calculated user initials:', userInitials);
-    } else {
-      console.log('No user found with ID:', activity.user_id);
     }
 
     // Get the patient's building information
-    console.log('Looking up patient with ID:', activity.patient_id);
     const patientResult = await pool.query(
       'SELECT building, site_name FROM patients WHERE id = $1',
       [activity.patient_id]
     );
-    
-    console.log('Patient query result:', patientResult.rows);
     
     let buildingName = activity.building_name || '';
     let siteName = activity.site_name;
@@ -133,13 +118,7 @@ export class ActivitiesService implements OnModuleInit {
       if (!siteName || siteName.trim() === '') {
         siteName = patient.site_name || '';
       }
-      console.log('Using building from patient:', buildingName);
-      console.log('Using site from patient:', siteName);
-    } else {
-      console.log('No patient found with ID:', activity.patient_id);
     }
-    
-    console.log('About to insert with user_initials:', userInitials, 'and building_name:', buildingName);
     
     const result = await pool.query(
       `INSERT INTO activities (
@@ -160,7 +139,6 @@ export class ActivitiesService implements OnModuleInit {
       ]
     );
     
-    console.log('Created activity:', result.rows[0]);
     return result.rows[0];
   }
 
@@ -169,7 +147,6 @@ export class ActivitiesService implements OnModuleInit {
       const result = await pool.query('SELECT * FROM activities ORDER BY service_datetime DESC');
       return result.rows;
     } catch (error) {
-      console.error('Error fetching activities:', error);
       throw error;
     }
   }
@@ -196,7 +173,6 @@ export class ActivitiesService implements OnModuleInit {
       `);
       return result.rows;
     } catch (error) {
-      console.error('Error fetching activities with details:', error);
       throw error;
     }
   }
@@ -218,7 +194,6 @@ export class ActivitiesService implements OnModuleInit {
       `, [id]);
       return result.rows[0];
     } catch (error) {
-      console.error('Error fetching activity:', error);
       throw error;
     }
   }

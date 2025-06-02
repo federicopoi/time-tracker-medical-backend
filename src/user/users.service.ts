@@ -191,6 +191,7 @@ export class UsersService implements OnModuleInit {
           GROUP BY u.id
         )
         SELECT 
+          u.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
           u.email,
           u.role,
@@ -222,6 +223,7 @@ export class UsersService implements OnModuleInit {
           GROUP BY u.id
         )
         SELECT 
+          u.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
           u.email,
           u.role,
@@ -290,6 +292,7 @@ export class UsersService implements OnModuleInit {
           GROUP BY u.id
         )
         SELECT 
+          u.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
           u.email,
           u.role,
