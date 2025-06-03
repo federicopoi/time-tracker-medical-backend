@@ -1,0 +1,158 @@
+Time Tracker Medical Backend - API Endpoints Documentation
+
+1. PATIENTS MODULE
+================
+Base URL: /patients
+
+1.1 Create Patient
+-----------------
+POST /patients
+Request Body:
+{
+  "first_name": string,
+  "last_name": string,
+  "birthdate": string (format: YYYY-MM-DD),
+  "gender": "M" | "F" | "O",
+  "phone_number": string (optional),
+  "contact_name": string (optional),
+  "contact_phone_number": string (optional),
+  "insurance": string (optional),
+  "is_active": boolean,
+  "site": string,
+  "building": string (optional)
+}
+Response: Created patient object
+
+1.2 Get All Patients
+------------------
+GET /patients
+Response: Array of patient objects
+[
+  {
+    "id": number,
+    "first_name": string,
+    "last_name": string,
+    "birthdate": string,
+    "gender": string,
+    "phone_number": string,
+    "contact_name": string,
+    "contact_phone_number": string,
+    "insurance": string,
+    "is_active": boolean,
+    "site": string,
+    "building": string,
+    "medical_records": string,
+    "created_at": string
+  },
+  ...
+]
+
+1.3 Get Patient by ID
+-------------------
+GET /patients/:id
+Response: Patient object with latest medical record
+{
+  "id": number,
+  "first_name": string,
+  "last_name": string,
+  "birthdate": string,
+  "gender": string,
+  "phone_number": string,
+  "contact_name": string,
+  "contact_phone_number": string,
+  "insurance": string,
+  "is_active": boolean,
+  "site": string,
+  "building": string,
+  "medical_records": string,
+  "created_at": string,
+  "latestMedicalRecord": {
+    "id": number,
+    "patientId": number,
+    "bpAtGoal": boolean,
+    "hospitalVisitSinceLastReview": boolean,
+    "a1cAtGoal": boolean,
+    "benzodiazepines": boolean,
+    "antipsychotics": boolean,
+    "opioids": boolean,
+    "fallSinceLastVisit": boolean,
+    "createdAt": string
+  }
+}
+
+1.4 Update Patient
+----------------
+PUT /patients/:id
+Request Body: Any patient fields that need to be updated
+Response: Updated patient object
+
+1.5 Delete Patient
+----------------
+DELETE /patients/:id
+Response: { "message": "Patient deleted successfully" }
+
+2. MEDICAL RECORDS MODULE
+=======================
+Base URL: /medical-records
+
+2.1 Create Medical Record
+-----------------------
+POST /medical-records
+Request Body:
+{
+  "patientId": number,
+  "bpAtGoal": boolean,
+  "hospitalVisitSinceLastReview": boolean,
+  "a1cAtGoal": boolean,
+  "benzodiazepines": boolean,
+  "antipsychotics": boolean,
+  "opioids": boolean,
+  "fallSinceLastVisit": boolean
+}
+Response: Created medical record object with timestamp
+
+2.2 Get Patient's Medical Records
+------------------------------
+GET /medical-records/patient/:patientId
+Response: Array of medical records for the specified patient
+[
+  {
+    "id": number,
+    "patientId": number,
+    "bpAtGoal": boolean,
+    "hospitalVisitSinceLastReview": boolean,
+    "a1cAtGoal": boolean,
+    "benzodiazepines": boolean,
+    "antipsychotics": boolean,
+    "opioids": boolean,
+    "fallSinceLastVisit": boolean,
+    "createdAt": string
+  },
+  ...
+]
+
+2.3 Get Patient's Latest Medical Record
+-----------------------------------
+GET /medical-records/patient/:patientId/latest
+Response: Latest medical record for the specified patient or null if none exists
+{
+  "id": number,
+  "patientId": number,
+  "bpAtGoal": boolean,
+  "hospitalVisitSinceLastReview": boolean,
+  "a1cAtGoal": boolean,
+  "benzodiazepines": boolean,
+  "antipsychotics": boolean,
+  "opioids": boolean,
+  "fallSinceLastVisit": boolean,
+  "createdAt": string
+}
+
+Notes:
+- All endpoints return JSON responses
+- Dates are in ISO format
+- Error responses include a message field with error details
+- Medical records are automatically linked to patients via patientId
+- When a patient is deleted, all their medical records are automatically deleted (cascade delete)
+- The GET patient/:id endpoint includes the latest medical record in the response
+- Boolean fields default to false if not specified 

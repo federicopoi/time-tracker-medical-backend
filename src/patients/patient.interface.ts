@@ -10,7 +10,9 @@ export interface Patient {
     insurance?: string;
     is_active: boolean;
     site: string; // site ID
+    site_name?: string;  // Added field for joined site name
     building?: string; // building ID
+    building_name?: string;  // Added field for joined building name
     created_at?: Date;
     medical_records: string; // medical records ID
 }
