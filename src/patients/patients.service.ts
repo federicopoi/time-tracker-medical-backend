@@ -34,7 +34,8 @@ export class PatientsService implements OnModuleInit {
             site_name VARCHAR(100) NOT NULL,
             building VARCHAR(100),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            medical_records VARCHAR(100) NOT NULL
+            medical_records VARCHAR(100) NOT NULL,
+            notes TEXT
           );
         `);
       }
@@ -52,8 +53,8 @@ export class PatientsService implements OnModuleInit {
         `INSERT INTO patients (
           first_name, last_name, birthdate, gender, phone_number,
           contact_name, contact_phone_number, insurance, is_active, site_name, building,
-          medical_records
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+          medical_records, notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
         [
           patient.first_name,
           patient.last_name,
@@ -67,6 +68,7 @@ export class PatientsService implements OnModuleInit {
           patient.site_name,
           patient.building,
           patient.medical_records,
+          patient.notes
         ]
       );
       return result.rows[0];

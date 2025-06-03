@@ -13,4 +13,5 @@ export interface Patient {
     is_active: boolean;
     created_at?: Date;
     medical_records: string;
+    notes?: string;
 }

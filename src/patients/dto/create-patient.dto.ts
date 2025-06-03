@@ -10,5 +10,6 @@ export class CreatePatientDto {
     site_name: string; // site ID
     building?: string; // building ID
     is_active: boolean;
+    notes?: string;
 }
   
