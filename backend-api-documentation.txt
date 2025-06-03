@@ -1,0 +1,115 @@
+Time Tracker Medical Backend API Documentation
+
+1. PATIENTS MODULE
+================
+Base URL: /patients
+
+Endpoints:
+
+POST /patients
+- Creates a new patient
+- Request Body:
+{
+  "first_name": string,
+  "last_name": string,
+  "birthdate": Date,
+  "gender": "M" | "F" | "O",
+  "phone_number": string,
+  "contact_name": string,
+  "contact_phone_number": string,
+  "insurance": string,
+  "is_active": boolean,
+  "site": string,
+  "building": string,
+  "medical_records": string
+}
+- Returns: Created patient object
+
+GET /patients
+- Retrieves all patients
+- Returns: Array of patient objects
+- Sorted by: created_at DESC
+
+GET /patients/:id
+- Retrieves a specific patient by ID
+- Returns: Patient object
+
+PATCH /patients/:id
+- Updates a patient
+- Request Body: Any patient fields that need to be updated
+- Returns: Updated patient object
+
+DELETE /patients/:id
+- Deletes a patient
+- Also deletes associated medical records (cascade delete)
+
+2. MEDICAL RECORDS MODULE
+======================
+Base URL: /medical-records
+
+Endpoints:
+
+POST /medical-records
+- Creates a new medical record
+- Request Body:
+{
+  "patientId": number,
+  "bpAtGoal": boolean,
+  "hospitalVisitSinceLastReview": boolean,
+  "a1cAtGoal": boolean,
+  "benzodiazepines": boolean,
+  "antipsychotics": boolean,
+  "opioids": boolean,
+  "fallSinceLastVisit": boolean
+}
+- Returns: Created medical record object with createdAt timestamp
+
+GET /medical-records/patient/:patientId
+- Retrieves all medical records for a specific patient
+- Returns: Array of medical record objects
+- Sorted by: created_at DESC
+
+GET /medical-records/patient/:patientId/latest
+- Retrieves the most recent medical record for a specific patient
+- Returns: Single medical record object or null if no records exist
+- Sorted by: created_at DESC
+
+Data Models:
+
+Patient {
+  id?: number;
+  first_name: string;
+  last_name: string;
+  birthdate: Date;
+  gender: "M" | "F" | "O";
+  phone_number: string;
+  contact_name: string;
+  contact_phone_number: string;
+  insurance: string;
+  is_active: boolean;
+  site: string;
+  building: string;
+  medical_records: string;
+  created_at?: Date;
+}
+
+MedicalRecord {
+  id?: number;
+  patientId: number;
+  bpAtGoal: boolean;
+  hospitalVisitSinceLastReview: boolean;
+  a1cAtGoal: boolean;
+  benzodiazepines: boolean;
+  antipsychotics: boolean;
+  opioids: boolean;
+  fallSinceLastVisit: boolean;
+  createdAt?: Date;
+}
+
+Notes:
+- All endpoints return JSON responses
+- Dates should be sent in ISO format
+- Error responses include a message field with error details
+- Medical records are automatically linked to patients via patientId
+- When a patient is deleted, all their medical records are automatically deleted
+- Both modules use timestamps (created_at/createdAt) for sorting and tracking 

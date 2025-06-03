@@ -76,32 +76,12 @@ export class PatientsService implements OnModuleInit {
   }
 
   async getPatients(): Promise<Patient[]> {
-    const query = `
-      SELECT 
-        p.*,
-        s.name as site_name,
-        b.name as building_name
-      FROM patients p
-      LEFT JOIN sites s ON p.site = s.id::varchar
-      LEFT JOIN buildings b ON p.building = b.id::varchar
-      ORDER BY p.created_at DESC
-    `;
-    const result = await pool.query(query);
+    const result = await pool.query('SELECT * FROM patients ORDER BY created_at DESC');
     return result.rows;
   }
 
   async getPatientById(id: number): Promise<Patient> {
-    const query = `
-      SELECT 
-        p.*,
-        s.name as site_name,
-        b.name as building_name
-      FROM patients p
-      LEFT JOIN sites s ON p.site = s.id::varchar
-      LEFT JOIN buildings b ON p.building = b.id::varchar
-      WHERE p.id = $1
-    `;
-    const result = await pool.query(query, [id]);
+    const result = await pool.query('SELECT * FROM patients WHERE id = $1', [id]);
     return result.rows[0];
   }
 
