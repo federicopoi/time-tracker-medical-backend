@@ -1,6 +1,7 @@
 export interface MedicalRecord {
   id?: number;
   patientId: number;
+  medicalRecords: boolean;
   bpAtGoal: boolean;
   hospitalVisitSinceLastReview: boolean;
   a1cAtGoal: boolean;

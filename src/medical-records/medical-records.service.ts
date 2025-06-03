@@ -22,6 +22,7 @@ export class MedicalRecordsService implements OnModuleInit {
           CREATE TABLE IF NOT EXISTS medical_records (
             id SERIAL PRIMARY KEY,
             patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+            medical_records BOOLEAN DEFAULT FALSE,
             bp_at_goal BOOLEAN DEFAULT FALSE,
             hospital_visit_since_last_review BOOLEAN DEFAULT FALSE,
             a1c_at_goal BOOLEAN DEFAULT FALSE,
@@ -42,11 +43,12 @@ export class MedicalRecordsService implements OnModuleInit {
     try {
       const result = await pool.query(
         `INSERT INTO medical_records (
-          patient_id, bp_at_goal, hospital_visit_since_last_review,
+          patient_id, medical_records, bp_at_goal, hospital_visit_since_last_review,
           a1c_at_goal, benzodiazepines, antipsychotics, opioids, fall_since_last_visit
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
         [
           medicalRecord.patientId,
+          medicalRecord.medicalRecords,
           medicalRecord.bpAtGoal,
           medicalRecord.hospitalVisitSinceLastReview,
           medicalRecord.a1cAtGoal,
@@ -97,6 +99,7 @@ export class MedicalRecordsService implements OnModuleInit {
     return {
       id: row.id,
       patientId: row.patient_id,
+      medicalRecords: row.medical_records,
       bpAtGoal: row.bp_at_goal,
       hospitalVisitSinceLastReview: row.hospital_visit_since_last_review,
       a1cAtGoal: row.a1c_at_goal,
