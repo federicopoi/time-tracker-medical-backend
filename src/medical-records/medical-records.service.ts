@@ -48,7 +48,7 @@ export class MedicalRecordsService implements OnModuleInit {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
         [
           medicalRecord.patientId,
-          medicalRecord.medicalRecords,
+          medicalRecord.medical_records,
           medicalRecord.bpAtGoal,
           medicalRecord.hospitalVisitSinceLastReview,
           medicalRecord.a1cAtGoal,
@@ -99,7 +99,7 @@ export class MedicalRecordsService implements OnModuleInit {
     return {
       id: row.id,
       patientId: row.patient_id,
-      medicalRecords: row.medical_records,
+      medical_records: row.medical_records,
       bpAtGoal: row.bp_at_goal,
       hospitalVisitSinceLastReview: row.hospital_visit_since_last_review,
       a1cAtGoal: row.a1c_at_goal,
