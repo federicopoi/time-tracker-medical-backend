@@ -17,4 +17,11 @@ export class MedicalRecordsController {
   ): Promise<MedicalRecord[]> {
     return this.medicalRecordsService.getMedicalRecordsByPatientId(patientId);
   }
+
+  @Get('patient/:patientId/latest')
+  async getLatestMedicalRecordByPatientId(
+    @Param('patientId', ParseIntPipe) patientId: number
+  ): Promise<MedicalRecord | null> {
+    return this.medicalRecordsService.getLatestMedicalRecordByPatientId(patientId);
+  }
 } 

@@ -76,6 +76,23 @@ export class MedicalRecordsService implements OnModuleInit {
     }
   }
 
+  async getLatestMedicalRecordByPatientId(patientId: number): Promise<MedicalRecord | null> {
+    try {
+      const result = await pool.query(
+        'SELECT * FROM medical_records WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 1',
+        [patientId]
+      );
+
+      if (result.rows.length === 0) {
+        return null;
+      }
+
+      return this.mapToMedicalRecord(result.rows[0]);
+    } catch (error) {
+      throw new Error(`Failed to get latest medical record: ${error.message}`);
+    }
+  }
+
   private mapToMedicalRecord(row: any): MedicalRecord {
     return {
       id: row.id,
