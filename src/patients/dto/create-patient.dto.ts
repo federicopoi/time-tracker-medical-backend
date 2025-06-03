@@ -7,7 +7,7 @@ export class CreatePatientDto {
     contact_name?: string;
     contact_phone_number?: string;
     insurance?: string;
-    site: string; // site ID
+    site_name: string; // site ID
     building?: string; // building ID
     is_active: boolean;
 }

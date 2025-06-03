@@ -31,7 +31,7 @@ export class PatientsService implements OnModuleInit {
             contact_phone_number VARCHAR(20),
             insurance VARCHAR(100),
             is_active BOOLEAN DEFAULT TRUE,
-            site VARCHAR(100) NOT NULL,
+            site_name VARCHAR(100) NOT NULL,
             building VARCHAR(100),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             medical_records VARCHAR(100) NOT NULL
@@ -51,7 +51,7 @@ export class PatientsService implements OnModuleInit {
       const result = await pool.query(
         `INSERT INTO patients (
           first_name, last_name, birthdate, gender, phone_number,
-          contact_name, contact_phone_number, insurance, is_active, site, building,
+          contact_name, contact_phone_number, insurance, is_active, site_name, building,
           medical_records
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
         [
@@ -64,7 +64,7 @@ export class PatientsService implements OnModuleInit {
           patient.contact_phone_number,
           patient.insurance,
           patient.is_active,
-          patient.site,
+          patient.site_name,
           patient.building,
           patient.medical_records,
         ]
