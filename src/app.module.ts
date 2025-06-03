@@ -6,6 +6,7 @@ import { ActivitiesModule } from './activities/activities.module';
 import { AuthModule } from './auth/auth.module';
 import { SitesModule } from './sites/sites.module';
 import { BuildingsModule } from './buildings/buildings.module';
+import { MedicalRecordsModule } from './medical-records/medical-records.module';
 
 @Module({
   imports: [
@@ -13,7 +14,8 @@ import { BuildingsModule } from './buildings/buildings.module';
     PatientsModule,    
     ActivitiesModule, AuthModule,
     SitesModule,
-    BuildingsModule
+    BuildingsModule,
+    MedicalRecordsModule
   ],
   controllers: [],
   providers: [],

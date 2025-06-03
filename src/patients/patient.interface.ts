@@ -1,14 +1,16 @@
-export class CreatePatientDto {
+export interface Patient {
+    id?: number;
     first_name: string;
     last_name: string;
-    birthdate: string; // format: 'YYYY-MM-DD'
+    birthdate: Date | string;
     gender: 'M' | 'F' | 'O';
     phone_number?: string;
     contact_name?: string;
     contact_phone_number?: string;
     insurance?: string;
+    is_active: boolean;
     site: string; // site ID
     building?: string; // building ID
-    is_active: boolean;
+    created_at?: Date;
+    medical_records: string; // medical records ID
 }
-  
