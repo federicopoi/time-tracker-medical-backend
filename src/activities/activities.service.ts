@@ -83,6 +83,7 @@ export class ActivitiesService implements OnModuleInit {
           a.*,
           p.site_name,
           p.building,
+          CONCAT(p.first_name, ' ', p.last_name) as patient_name,
           CONCAT(
             UPPER(LEFT(u.first_name, 1)),
             UPPER(LEFT(u.last_name, 1))
@@ -96,26 +97,7 @@ export class ActivitiesService implements OnModuleInit {
   }
 
   async getActivityById(id:number): Promise<Activity>{
-    const result = await pool.query(`
-      SELECT 
-        a.*,
-        a.service_datetime as start_time,
-        (a.service_datetime + (a.duration_minutes || ' minutes')::interval) as end_time,
-        CONCAT(p.first_name, ' ', p.last_name) as patient_name,
-        p.site_name,
-        p.building,
-        CONCAT(
-          UPPER(LEFT(u.first_name, 1)),
-          UPPER(LEFT(u.last_name, 1))
-        ) as user_initials,
-        a.duration_minutes as total_time,
-        a.activity_type,
-        a.notes
-      FROM activities a
-      LEFT JOIN patients p ON a.patient_id = p.id
-      LEFT JOIN users u ON a.user_id = u.id
-      WHERE a.id = $1
-    `, [id]);
+    const result = await pool.query('SELECT * FROM activities WHERE id = $1', [id]);
     return result.rows[0];
   }
 
