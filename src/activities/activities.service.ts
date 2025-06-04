@@ -67,22 +67,22 @@ export class ActivitiesService implements OnModuleInit {
   }
 
   async getActivites(): Promise<Activity[]>{
-      const result = await pool.query('SELECT * FROM activites ORDER BY created_at DESC');
+      const result = await pool.query('SELECT * FROM activities ORDER BY created_at DESC');
       return result.rows;
   }
 
   async getActivityById(id:number): Promise<Activity>{
-    const result = await pool.query('SELECT * FROM activites WHERE id = $1', [id]);
+    const result = await pool.query('SELECT * FROM activities WHERE id = $1', [id]);
     return result.rows[0];
   }
 
   async getActivitesByPatientId(patientId:number): Promise<Activity[]>{
-    const result = await pool.query('SELECT * FROM activites WHERE patient_id = $1 ORDER BY created_at DESC', [patientId]);
+    const result = await pool.query('SELECT * FROM activities WHERE patient_id = $1 ORDER BY created_at DESC', [patientId]);
     return result.rows;
   }
 
   async deleteActivity(id:number): Promise<void>{
-    await pool.query('DELETE FROM activites WHERE id = $1', [id]);
+    await pool.query('DELETE FROM activities WHERE id = $1', [id]);
   }
 
   async updateActivity(id: number,activity:Partial<Activity>): Promise<Activity>{
