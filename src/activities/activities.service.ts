@@ -78,17 +78,63 @@ export class ActivitiesService implements OnModuleInit {
   }
 
   async getActivites(): Promise<Activity[]>{
-      const result = await pool.query('SELECT * FROM activities ORDER BY created_at DESC');
+      const result = await pool.query(`
+        SELECT 
+          a.*,
+          p.site_name,
+          p.building,
+          CONCAT(
+            UPPER(LEFT(u.first_name, 1)),
+            UPPER(LEFT(u.last_name, 1))
+          ) as user_initials
+        FROM activities a
+        LEFT JOIN patients p ON a.patient_id = p.id
+        LEFT JOIN users u ON a.user_id = u.id
+        ORDER BY a.created_at DESC
+      `);
       return result.rows;
   }
 
   async getActivityById(id:number): Promise<Activity>{
-    const result = await pool.query('SELECT * FROM activities WHERE id = $1', [id]);
+    const result = await pool.query(`
+      SELECT 
+        a.*,
+        a.service_datetime as start_time,
+        (a.service_datetime + (a.duration_minutes || ' minutes')::interval) as end_time,
+        CONCAT(p.first_name, ' ', p.last_name) as patient_name,
+        p.site_name,
+        p.building,
+        CONCAT(
+          UPPER(LEFT(u.first_name, 1)),
+          UPPER(LEFT(u.last_name, 1))
+        ) as user_initials,
+        a.duration_minutes as total_time,
+        a.activity_type,
+        a.notes
+      FROM activities a
+      LEFT JOIN patients p ON a.patient_id = p.id
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.id = $1
+    `, [id]);
     return result.rows[0];
   }
 
   async getActivitesByPatientId(patientId:number): Promise<Activity[]>{
-    const result = await pool.query('SELECT * FROM activities WHERE patient_id = $1 ORDER BY created_at DESC', [patientId]);
+    const result = await pool.query(`
+      SELECT 
+        a.*,
+        p.site_name,
+        p.building,
+        CONCAT(
+          UPPER(LEFT(u.first_name, 1)),
+          UPPER(LEFT(u.last_name, 1))
+        ) as user_initials
+      FROM activities a
+      LEFT JOIN patients p ON a.patient_id = p.id
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.patient_id = $1
+      ORDER BY a.created_at DESC
+    `, [patientId]);
     return result.rows;
   }
 
