@@ -44,18 +44,29 @@ export class ActivitiesService implements OnModuleInit {
 
   async createActivity(activity:Activity):Promise<Activity>{
     try{
+      // First get the site_name and building from patient
       const result = await pool.query(
-        `INSERT INTO activities (
+        `WITH patient_location AS (
+          SELECT site_name, building 
+          FROM patients 
+          WHERE id = $1
+        )
+        INSERT INTO activities (
           patient_id, user_id, activity_type, pharm_flag, notes, site_name, building, service_datetime, duration_minutes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+        ) 
+        SELECT 
+          $1, $2, $3, $4, $5, 
+          pl.site_name, 
+          pl.building, 
+          $6, $7
+        FROM patient_location pl
+        RETURNING *`,
         [
           activity.patient_id,
           activity.user_id,
           activity.activity_type,
           activity.pharm_flag,
           activity.notes,
-          activity.site_name,
-          activity.building,
           activity.service_datetime,
           activity.duration_minutes
         ]

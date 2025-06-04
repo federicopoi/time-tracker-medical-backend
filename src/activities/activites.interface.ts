@@ -5,8 +5,8 @@ export interface Activity {
     activity_type:string;
     pharm_flag?:boolean;
     notes?:string;
-    building?:string; // building id
-    site_name:string; // site id
+    building?:string; 
+    site_name:string; 
     service_datetime:Date;
     duration_minutes:number;
     created_at?:Date;
