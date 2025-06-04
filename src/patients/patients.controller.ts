@@ -64,4 +64,13 @@ export class PatientsController {
       throw new HttpException('Failed to delete patient', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
+
+  @Get('site/:siteName')
+  async getPatientsBySiteName(@Param('siteName') siteName: string) {
+    try {
+      return await this.patientsService.getPatientsBySiteName(siteName);
+    } catch (error) {
+      throw new HttpException(`Failed to fetch patients for site: ${error.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
 }

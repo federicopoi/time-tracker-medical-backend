@@ -119,4 +119,16 @@ export class PatientsService implements OnModuleInit {
   async deletePatient(id: number): Promise<void> {
     await pool.query('DELETE FROM patients WHERE id = $1', [id]);
   }
+
+  async getPatientsBySiteName(siteName: string): Promise<Patient[]> {
+    try {
+      const result = await pool.query(
+        'SELECT * FROM patients WHERE site_name = $1 ORDER BY created_at DESC',
+        [siteName]
+      );
+      return result.rows;
+    } catch (error) {
+      throw new Error(`Failed to fetch patients for site ${siteName}: ${error.message}`);
+    }
+  }
 }
