@@ -1,6 +1,7 @@
 import {Controller,Get,Post,Put,Delete,Body,Param,HttpException,HttpStatus} from '@nestjs/common';
 import {ActivitiesService} from './activities.service';
 import { CreateActivityDto } from './dto/create-activity.dto';
+import { UpdateActivityDto } from './dto/update-activity.dto';
 import { Activity } from './activites.interface';
 
 
@@ -56,10 +57,12 @@ export class ActivitiesController {
     }
 
     @Put(':id')
-    async updateActivity(@Param('id') id: string, @Body() activityDto: Partial<Activity>) {
+    async updateActivity(@Param('id') id: string, @Body() activityDto: UpdateActivityDto) {
         try {
+            console.log('Received update data:', activityDto);
             return await this.activitiesService.updateActivity(parseInt(id), activityDto);
         } catch (error) {
+            console.error('Error in updateActivity controller:', error);
             if (error.message.includes('not found')) {
                 throw new HttpException('Activity not found', HttpStatus.NOT_FOUND);
             }
