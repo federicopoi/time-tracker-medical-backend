@@ -97,7 +97,21 @@ export class ActivitiesService implements OnModuleInit {
   }
 
   async getActivityById(id:number): Promise<Activity>{
-    const result = await pool.query('SELECT * FROM activities WHERE id = $1', [id]);
+    const result = await pool.query(`
+      SELECT 
+        a.*,
+        p.site_name,
+        p.building,
+        CONCAT(p.first_name, ' ', p.last_name) as patient_name,
+        CONCAT(
+          UPPER(LEFT(u.first_name, 1)),
+          UPPER(LEFT(u.last_name, 1))
+        ) as user_initials
+      FROM activities a
+      LEFT JOIN patients p ON a.patient_id = p.id
+      LEFT JOIN users u ON a.user_id = u.id
+      WHERE a.id = $1
+    `, [id]);
     return result.rows[0];
   }
 
