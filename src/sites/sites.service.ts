@@ -92,7 +92,14 @@ export class SitesService implements OnModuleInit {
   }
 
   async deleteSite(id: number): Promise<void> {
-    await pool.query('DELETE FROM sites WHERE id = $1', [id]);
+    try {
+      await pool.query('DELETE FROM sites WHERE id = $1', [id]);
+    } catch (error) {
+      if (error.code === '23503') { // Foreign key violation
+        throw new Error('Cannot delete site: There are users assigned to this site. Please reassign users to different sites before deleting.');
+      }
+      throw error;
+    }
   }
 
   // Get all sites with their building names

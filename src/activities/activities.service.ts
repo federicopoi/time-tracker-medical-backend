@@ -42,37 +42,45 @@ export class ActivitiesService implements OnModuleInit {
     }
   }
 
-  async createActivity(activity:Activity):Promise<Activity>{
-    try{
-      // First get the site_name and building from patient
+  async createActivity(activity: Activity): Promise<Activity> {
+    try {
       const result = await pool.query(
-        `WITH patient_location AS (
-          SELECT site_name, building 
-          FROM patients 
-          WHERE id = $1
-        )
-        INSERT INTO activities (
-          patient_id, user_id, activity_type, pharm_flag, notes, site_name, building, service_datetime, duration_minutes
+        `INSERT INTO activities (
+          patient_id, user_id, activity_type, pharm_flag, notes, 
+          site_name, building, service_datetime, duration_minutes
         ) 
-        SELECT 
-          $1, $2, $3, $4, $5, 
-          pl.site_name, 
-          pl.building, 
-          $6, $7
-        FROM patient_location pl
+        VALUES (
+          $1, 
+          $2, 
+          $3, 
+          $4, 
+          $5, 
+          COALESCE((SELECT site_name FROM patients WHERE id = $1), $6),
+          COALESCE((SELECT building FROM patients WHERE id = $1), $7), 
+          $8, 
+          $9
+        )
         RETURNING *`,
         [
-          activity.patient_id,
-          activity.user_id,
-          activity.activity_type,
-          activity.pharm_flag,
-          activity.notes,
-          activity.service_datetime,
-          activity.duration_minutes
+          activity.patient_id,                                    // $1
+          activity.user_id,                                       // $2
+          activity.activity_type,                                 // $3
+          activity.pharm_flag || false,                          // $4
+          activity.notes || '',                                  // $5
+          activity.site_name || '',                              // $6 (fallback site_name)
+          activity.building || '',                               // $7 (fallback building)
+          activity.service_datetime || new Date().toISOString(), // $8
+          activity.duration_minutes                              // $9
         ]
       );
+      
+      if (result.rows.length === 0) {
+        throw new Error('No activity was created - patient may not exist');
+      }
+      
       return result.rows[0];
-    }catch(error){
+    } catch (error) {
+      console.error('Database error in createActivity:', error);
       throw new Error(`Failed to create activity: ${error.message}`);
     }
   }

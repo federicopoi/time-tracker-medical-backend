@@ -43,7 +43,7 @@ export class UsersService implements OnModuleInit {
             CONSTRAINT fk_primarysite
               FOREIGN KEY (primarysite_id)
               REFERENCES sites(id)
-              ON DELETE CASCADE
+              ON DELETE RESTRICT
           );
         `);
       } else {
@@ -102,7 +102,7 @@ export class UsersService implements OnModuleInit {
             ADD CONSTRAINT fk_primarysite
               FOREIGN KEY (primarysite_id)
               REFERENCES sites(id)
-              ON DELETE CASCADE
+              ON DELETE RESTRICT
           `);
 
           await pool.query(`
