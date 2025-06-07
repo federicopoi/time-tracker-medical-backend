@@ -1,52 +1,9 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { pool } from '../config/database.config';
 import { Patient } from './patient.interface';
 
 @Injectable()
-export class PatientsService implements OnModuleInit {
-  async onModuleInit() {
-    try {
-      // Check if table exists
-      const tableCheck = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public'
-          AND table_name = 'patients'
-        );
-      `);
-
-      // Only recreate table if it doesn't exist, not on every restart
-      let shouldRecreateTable = !tableCheck.rows[0].exists;
-
-      if (shouldRecreateTable) {
-        await pool.query('DROP TABLE IF EXISTS patients CASCADE');
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS patients (
-            id SERIAL PRIMARY KEY,
-            first_name VARCHAR(50) NOT NULL,
-            last_name VARCHAR(50) NOT NULL,
-            birthdate DATE NOT NULL,
-            gender CHAR(1) CHECK (gender IN ('M', 'F', 'O')),
-            phone_number VARCHAR(20),
-            contact_name VARCHAR(100),
-            contact_phone_number VARCHAR(20),
-            insurance VARCHAR(100),
-            is_active BOOLEAN DEFAULT TRUE,
-            site_name VARCHAR(100) NOT NULL,
-            building VARCHAR(100),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            notes TEXT
-          );
-        `);
-        console.log('Patients table created successfully');
-      } else {
-        console.log('Patients table already exists, preserving data');
-      }
-    } catch (error) {
-      throw new Error(`Error checking/creating patients table: ${error.message}`);
-    }
-  }
-
+export class PatientsService {
   async createPatient(patient: Patient): Promise<Patient> {
     try {
       // Convert birthdate string to Date if needed

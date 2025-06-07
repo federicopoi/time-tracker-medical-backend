@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { pool } from '../config/database.config';
 
 export interface Site {
@@ -13,37 +13,7 @@ export interface Site {
 }
 
 @Injectable()
-export class SitesService implements OnModuleInit {
-  async onModuleInit() {
-    try {
-      // Check if table exists
-      const tableCheck = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public'
-          AND table_name = 'sites'
-        );
-      `);
-
-      if (!tableCheck.rows[0].exists) {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS sites (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100) NOT NULL UNIQUE,
-            address VARCHAR(255) NOT NULL,
-            city VARCHAR(100) NOT NULL,
-            state VARCHAR(50) NOT NULL,
-            zip VARCHAR(20) NOT NULL,
-            is_active BOOLEAN DEFAULT TRUE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-        `);
-      }
-    } catch (error) {
-      // Silent error handling - table creation will be retried if needed
-    }
-  }
-
+export class SitesService {
   async createSite(site: Site): Promise<Site> {
     const result = await pool.query(
       `INSERT INTO sites (

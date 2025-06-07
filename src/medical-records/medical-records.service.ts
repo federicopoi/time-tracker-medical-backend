@@ -1,44 +1,9 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { pool } from '../config/database.config';
 import { MedicalRecord } from './medical-record.interface';
 
 @Injectable()
-export class MedicalRecordsService implements OnModuleInit {
-  async onModuleInit() {
-    try {
-      const tableCheck = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public'
-          AND table_name = 'medical_records'
-        );
-      `);
-
-      let shouldRecreateTable = true;
-
-      if (shouldRecreateTable) {
-        await pool.query('DROP TABLE IF EXISTS medical_records CASCADE');
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS medical_records (
-            id SERIAL PRIMARY KEY,
-            patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-            medical_records BOOLEAN DEFAULT FALSE,
-            bp_at_goal BOOLEAN DEFAULT FALSE,
-            hospital_visit_since_last_review BOOLEAN DEFAULT FALSE,
-            a1c_at_goal BOOLEAN DEFAULT FALSE,
-            benzodiazepines BOOLEAN DEFAULT FALSE,
-            antipsychotics BOOLEAN DEFAULT FALSE,
-            opioids BOOLEAN DEFAULT FALSE,
-            fall_since_last_visit BOOLEAN DEFAULT FALSE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
-        `);
-      }
-    } catch (error) {
-      throw new Error(`Error checking/creating medical_records table: ${error.message}`);
-    }
-  }
-
+export class MedicalRecordsService {
   async createMedicalRecord(medicalRecord: MedicalRecord): Promise<MedicalRecord> {
     try {
       const result = await pool.query(

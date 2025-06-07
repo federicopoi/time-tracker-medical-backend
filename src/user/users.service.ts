@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { pool } from "src/config/database.config";
 import * as bcrypt from 'bcrypt';
 
@@ -15,107 +15,8 @@ export interface User {
 }
 
 @Injectable()
-export class UsersService implements OnModuleInit {
+export class UsersService {
   private readonly SALT_ROUNDS = 10;
-
-  async onModuleInit() {
-    try {
-      const tableCheck = await pool.query(`
-        SELECT EXISTS (
-          SELECT FROM information_schema.tables 
-          WHERE table_schema = 'public'
-          AND table_name = 'users'
-        )  
-      `);
-
-      if (!tableCheck.rows[0].exists) {
-        await pool.query(`
-          CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            first_name VARCHAR(50) NOT NULL,
-            last_name VARCHAR(50) NOT NULL,
-            email VARCHAR(100) NOT NULL UNIQUE,
-            password VARCHAR(255) NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'nurse', 'pharmacist')),
-            primarysite_id INTEGER NOT NULL,
-            assignedsites_ids INTEGER[] NOT NULL DEFAULT '{}',
-            CONSTRAINT fk_primarysite
-              FOREIGN KEY (primarysite_id)
-              REFERENCES sites(id)
-              ON DELETE RESTRICT
-          );
-        `);
-      } else {
-        const columnCheck = await pool.query(`
-          SELECT column_name 
-          FROM information_schema.columns 
-          WHERE table_name = 'users' 
-          AND column_name IN ('primarysite', 'assignedsites', 'primarysite_id', 'assignedsites_ids')
-        `);
-        
-        const hasOldColumns = columnCheck.rows.some(row => 
-          row.column_name === 'primarysite' || row.column_name === 'assignedsites'
-        );
-        const hasNewColumns = columnCheck.rows.some(row => 
-          row.column_name === 'primarysite_id' || row.column_name === 'assignedsites_ids'
-        );
-
-        if (hasOldColumns && !hasNewColumns) {
-          await pool.query(`
-            ALTER TABLE users 
-            ADD COLUMN primarysite_id INTEGER,
-            ADD COLUMN assignedsites_ids INTEGER[] DEFAULT '{}'
-          `);
-          
-          await pool.query(`
-            UPDATE users 
-            SET primarysite_id = (SELECT id FROM sites WHERE name = users.primarysite)
-            WHERE primarysite_id IS NULL
-          `);
-
-          const usersWithAssignedSites = await pool.query(`
-            SELECT id, assignedsites FROM users WHERE assignedsites IS NOT NULL
-          `);
-          
-          for (const user of usersWithAssignedSites.rows) {
-            if (user.assignedsites && user.assignedsites.length > 0) {
-              const siteIds: number[] = [];
-              for (const siteName of user.assignedsites) {
-                const siteResult = await pool.query('SELECT id FROM sites WHERE name = $1', [siteName]);
-                if (siteResult.rows.length > 0) {
-                  siteIds.push(siteResult.rows[0].id);
-                }
-              }
-              if (siteIds.length > 0) {
-                await pool.query(
-                  'UPDATE users SET assignedsites_ids = $1 WHERE id = $2',
-                  [siteIds, user.id]
-                );
-              }
-            }
-          }
-
-          await pool.query(`
-            ALTER TABLE users 
-            ALTER COLUMN primarysite_id SET NOT NULL,
-            ADD CONSTRAINT fk_primarysite
-              FOREIGN KEY (primarysite_id)
-              REFERENCES sites(id)
-              ON DELETE RESTRICT
-          `);
-
-          await pool.query(`
-            ALTER TABLE users 
-            DROP COLUMN primarysite,
-            DROP COLUMN assignedsites
-          `);
-        }
-      }
-    } catch (error) {
-      throw error;
-    }
-  }
 
   async findOne(email: string, password: string): Promise<User | null> {
     try {
