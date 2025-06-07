@@ -12,6 +12,8 @@ export interface User {
   role: "admin" | "nurse" | "pharmacist";
   assignedsites_ids:number[];
   primarysite_id:number;
+  new_password?: string;
+  current_password?: string;
 }
 
 @Injectable()
@@ -155,6 +157,13 @@ export class UsersService {
 
       if (user.email) {
         user.email = user.email.toLowerCase();
+      }
+
+      // Handle password update
+      if (user.new_password) {
+        user.password = await bcrypt.hash(user.new_password, this.SALT_ROUNDS);
+        delete user.new_password; // Remove new_password from the object
+        delete user.current_password; // Remove current_password if present
       }
 
       const fields = Object.keys(user).filter((key) => user[key] !== undefined);
