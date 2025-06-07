@@ -15,7 +15,8 @@ export class PatientsService implements OnModuleInit {
         );
       `);
 
-      let shouldRecreateTable = true; // We want to recreate the table to match new structure
+      // Only recreate table if it doesn't exist, not on every restart
+      let shouldRecreateTable = !tableCheck.rows[0].exists;
 
       if (shouldRecreateTable) {
         await pool.query('DROP TABLE IF EXISTS patients CASCADE');
@@ -37,6 +38,9 @@ export class PatientsService implements OnModuleInit {
             notes TEXT
           );
         `);
+        console.log('Patients table created successfully');
+      } else {
+        console.log('Patients table already exists, preserving data');
       }
     } catch (error) {
       throw new Error(`Error checking/creating patients table: ${error.message}`);
