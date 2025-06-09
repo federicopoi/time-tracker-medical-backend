@@ -7,5 +7,5 @@ export class CreateActivityDto {
     building?:string;
     site_name:string;
     service_datetime:Date;
-    duration_minutes:number;
+    duration_minutes:number; // Supports decimal values to account for seconds (e.g., 1.5 minutes = 1 minute 30 seconds)
 }
