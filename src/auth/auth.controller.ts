@@ -19,7 +19,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post("login")
   async signIn(@Body() signInDto: SignInDto): Promise<AuthResponse> {
-    return this.authService.signIn(signInDto.email, signInDto.password);
+    // NotFoundException (404) and UnauthorizedException (401) will be handled automatically
+    return await this.authService.signIn(signInDto.email, signInDto.password);
   }
 
   @UseGuards(AuthGuard)

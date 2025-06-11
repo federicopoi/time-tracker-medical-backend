@@ -20,7 +20,7 @@ export interface User {
 export class UsersService {
   private readonly SALT_ROUNDS = 10;
 
-  async findOne(email: string, password: string): Promise<User | null> {
+  async findOne(email: string, password: string): Promise<User | 'user_not_found' | 'invalid_password'> {
     try {
       const normalizedEmail = email.toLowerCase();
       
@@ -31,12 +31,12 @@ export class UsersService {
       
       const user = result.rows[0];
       if (!user) {
-        return null;
+        return 'user_not_found';
       }
 
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
-        return null;
+        return 'invalid_password';
       }
 
       return user;

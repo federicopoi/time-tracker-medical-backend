@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from 'src/user/users.service';
 import { AuthResponse } from './types/auth.types';
@@ -14,20 +14,25 @@ export class AuthService {
     email: string,
     pass: string,
   ): Promise<AuthResponse> {
-    const user = await this.userService.findOne(email, pass);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+    const result = await this.userService.findOne(email, pass);
+    
+    if (result === 'user_not_found') {
+      throw new NotFoundException('No account found with this email address');
+    }
+    
+    if (result === 'invalid_password') {
+      throw new UnauthorizedException('Incorrect password');
     }
   
     const payload = {
-      sub: user.id,
-      email: user.email,
-      name: `${user.first_name} ${user.last_name}`,
-      role: user.role
+      sub: result.id,
+      email: result.email,
+      name: `${result.first_name} ${result.last_name}`,
+      role: result.role
     };
   
     // Create response without password
-    const { password, ...userWithoutPassword } = user;
+    const { password, ...userWithoutPassword } = result;
     
     return {
       access_token: await this.jwtService.signAsync(payload),
