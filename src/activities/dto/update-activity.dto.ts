@@ -7,5 +7,6 @@ export class UpdateActivityDto {
     building?: string;
     site_name?: string;
     service_datetime?: Date | string;
+    service_endtime?: Date | string;
     duration_minutes?: number; // Supports decimal values to account for seconds (e.g., 1.5 minutes = 1 minute 30 seconds)
 } 

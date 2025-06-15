@@ -9,7 +9,7 @@ export class ActivitiesService {
       const result = await pool.query(
         `INSERT INTO activities (
           patient_id, user_id, activity_type, pharm_flag, notes, 
-          site_name, building, service_datetime, duration_minutes
+          site_name, building, service_datetime, service_endtime, duration_minutes
         ) 
         VALUES (
           $1, 
@@ -20,7 +20,8 @@ export class ActivitiesService {
           COALESCE((SELECT site_name FROM patients WHERE id = $1), $6),
           COALESCE((SELECT building FROM patients WHERE id = $1), $7), 
           $8, 
-          $9
+          $9,
+          $10
         )
         RETURNING *`,
         [
@@ -32,6 +33,7 @@ export class ActivitiesService {
           activity.site_name || '',                              // $6 (fallback site_name)
           activity.building || '',                               // $7 (fallback building)
           activity.service_datetime || new Date().toISOString(), // $8
+          activity.service_endtime || new Date().toISOString(),
           activity.duration_minutes                              // $9
         ]
       );
@@ -138,6 +140,14 @@ export class ActivitiesService {
           updateFields.service_datetime = new Date(activityDto.service_datetime);
         } else {
           updateFields.service_datetime = activityDto.service_datetime;
+        }
+      }
+
+      if (activityDto.service_endtime !== undefined) {
+        if (typeof activityDto.service_endtime === 'string') {
+          updateFields.service_endtime = new Date(activityDto.service_endtime);
+        } else {
+          updateFields.service_endtime = activityDto.service_endtime;
         }
       }
 

@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS activities (
     notes TEXT,
     site_name VARCHAR(100) CHECK (site_name IN ('CP Greater San Antonio', 'CP Intermountain')),
     service_datetime TIMESTAMP NOT NULL,
+    service_endtime TIMESTAMP NOT NULL,
     duration_minutes DECIMAL(5,2) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_patient
