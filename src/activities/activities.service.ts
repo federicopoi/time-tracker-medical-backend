@@ -6,10 +6,15 @@ import { Activity } from './activites.interface';
 export class ActivitiesService {
   async createActivity(activity: Activity): Promise<Activity> {
     try {
+      // Calculate duration from end_time and service_datetime
+      const startTime = new Date(activity.service_datetime);
+      const endTime = new Date(activity.end_time);
+      const durationMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+
       const result = await pool.query(
         `INSERT INTO activities (
           patient_id, user_id, activity_type, pharm_flag, notes, 
-          site_name, building, service_datetime, duration_minutes
+          site_name, building, service_datetime, end_time, duration_minutes
         ) 
         VALUES (
           $1, 
@@ -19,8 +24,9 @@ export class ActivitiesService {
           $5, 
           COALESCE((SELECT site_name FROM patients WHERE id = $1), $6),
           COALESCE((SELECT building FROM patients WHERE id = $1), $7), 
-          $8, 
-          $9
+          $8,
+          $9,
+          $10
         )
         RETURNING *`,
         [
@@ -32,7 +38,8 @@ export class ActivitiesService {
           activity.site_name || '',                              // $6 (fallback site_name)
           activity.building || '',                               // $7 (fallback building)
           activity.service_datetime || new Date().toISOString(), // $8
-          activity.duration_minutes                              // $9
+          activity.end_time || new Date().toISOString(),        // $9
+          durationMinutes                                        // $10 (calculated from end_time)
         ]
       );
       
@@ -113,10 +120,10 @@ export class ActivitiesService {
     await pool.query('DELETE FROM activities WHERE id = $1', [id]);
   }
 
-  async updateActivity(id: number, activityDto: any): Promise<Activity>{
-    try{
+  async updateActivity(id: number, activityDto: any): Promise<Activity> {
+    try {
       const currentActivity = await this.getActivityById(id);
-      if(!currentActivity){
+      if (!currentActivity) {
         throw new Error("Activity not found");
       }
 
@@ -130,7 +137,6 @@ export class ActivitiesService {
       if (activityDto.notes !== undefined) updateFields.notes = activityDto.notes;
       if (activityDto.building !== undefined) updateFields.building = activityDto.building;
       if (activityDto.site_name !== undefined) updateFields.site_name = activityDto.site_name;
-      if (activityDto.duration_minutes !== undefined) updateFields.duration_minutes = activityDto.duration_minutes;
       
       // Handle service_datetime conversion
       if (activityDto.service_datetime !== undefined) {
@@ -141,6 +147,22 @@ export class ActivitiesService {
         }
       }
 
+      // Handle end_time conversion
+      if (activityDto.end_time !== undefined) {
+        if (typeof activityDto.end_time === 'string') {
+          updateFields.end_time = new Date(activityDto.end_time);
+        } else {
+          updateFields.end_time = activityDto.end_time;
+        }
+      }
+
+      // Calculate duration from end_time and service_datetime if both are present
+      if (updateFields.service_datetime && updateFields.end_time) {
+        const startTime = new Date(updateFields.service_datetime);
+        const endTime = new Date(updateFields.end_time);
+        updateFields.duration_minutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+      }
+
       const fields = Object.keys(updateFields);
       const values = fields.map(field => updateFields[field]);
 
@@ -148,7 +170,7 @@ export class ActivitiesService {
         throw new Error("No valid fields to update");
       }
 
-      const setString = fields.map((field,index) => `${field} = $${index + 1}`).join(', ');
+      const setString = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
 
       const query = `
         UPDATE activities
@@ -157,20 +179,16 @@ export class ActivitiesService {
         RETURNING *
       `;
 
-      console.log('Update query:', query);
-      console.log('Update values:', values);
-
-      const result = await pool.query(query, [...values,id]);
-
-      if(result.rows.length === 0){
-        throw new Error("Failed to update activity");
+      const result = await pool.query(query, [...values, id]);
+      
+      if (result.rows.length === 0) {
+        throw new Error("Activity not found");
       }
       
-      // Return the updated activity with enriched data
-      return await this.getActivityById(id);
-    }catch(error){
-      console.error('Error in updateActivity service:', error);
-      throw error;
+      return result.rows[0];
+    } catch (error) {
+      console.error('Database error in updateActivity:', error);
+      throw new Error(`Failed to update activity: ${error.message}`);
     }
   }
 }
