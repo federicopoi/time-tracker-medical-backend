@@ -31,8 +31,23 @@ export class SitesService {
     return result.rows[0];
   }
 
-  async getSites(): Promise<Site[]> {
-    const result = await pool.query('SELECT * FROM sites ORDER BY name ASC');
+  async getSites(userId?: number): Promise<Site[]> {
+    let query = 'SELECT * FROM sites';
+    let params: any[] = [];
+
+    if (userId) {
+      query = `
+        SELECT s.* FROM sites s
+        JOIN users u ON u.id = $1
+        WHERE s.id = ANY(u.assignedsites_ids)
+        ORDER BY s.name ASC
+      `;
+      params = [userId];
+    } else {
+      query += ' ORDER BY name ASC';
+    }
+
+    const result = await pool.query(query, params);
     return result.rows;
   }
 
@@ -73,9 +88,9 @@ export class SitesService {
   }
 
   // Get all sites with their building names
-  async getSitesAndBuildings(): Promise<any[]> {
+  async getSitesAndBuildings(userId?: number): Promise<any[]> {
     try {
-      const result = await pool.query(`
+      let query = `
         SELECT 
           s.name as site_name,
           COALESCE(
@@ -89,9 +104,24 @@ export class SitesService {
           ) as building_names
         FROM sites s
         LEFT JOIN buildings b ON s.id = b.site_id
+      `;
+      
+             let params: any[] = [];
+       
+       if (userId) {
+         query += `
+           JOIN users u ON u.id = $1
+           WHERE s.id = ANY(u.assignedsites_ids)
+         `;
+         params = [userId];
+       }
+      
+      query += `
         GROUP BY s.name
         ORDER BY s.name ASC
-      `);
+      `;
+      
+      const result = await pool.query(query, params);
       
       return result.rows;
     } catch (error) {
