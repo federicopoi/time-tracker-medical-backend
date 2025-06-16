@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, HttpException, HttpStatus, UseGuards, Request } from '@nestjs/common';
 import { SitesService, Site } from './sites.service';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('sites')
+@UseGuards(AuthGuard)
 export class SitesController {
   constructor(private readonly sitesService: SitesService) {}
 
@@ -15,9 +17,10 @@ export class SitesController {
   }
 
   @Get()
-  async getSites() {
+  async getSites(@Request() req) {
     try {
-      return await this.sitesService.getSites();
+      const userId = parseInt(req.user.sub);
+      return await this.sitesService.getSites(userId);
     } catch (error) {
       throw new HttpException('Failed to fetch sites', HttpStatus.INTERNAL_SERVER_ERROR);
     }
@@ -25,9 +28,10 @@ export class SitesController {
 
   // Get all sites with their building names
   @Get('sites-and-buildings')
-  async getSitesAndBuildings() {
+  async getSitesAndBuildings(@Request() req) {
     try {
-      return await this.sitesService.getSitesAndBuildings();
+      const userId = parseInt(req.user.sub);
+      return await this.sitesService.getSitesAndBuildings(userId);
     } catch (error) {
       throw new HttpException('Failed to fetch sites and buildings', HttpStatus.INTERNAL_SERVER_ERROR);
     }
