@@ -26,7 +26,7 @@ export class SitesController {
     }
   }
 
-  // Get all sites for admin (no filtering)
+  // Get all sites for admin
   @Get('admin/all')
   async getAllSitesByAdmin(@Request() req) {
     try {
