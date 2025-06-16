@@ -51,6 +51,11 @@ export class SitesService {
     return result.rows;
   }
 
+  async getAllSitesByAdmin(): Promise<Site[]> {
+    const result = await pool.query('SELECT * FROM sites ORDER BY name ASC');
+    return result.rows;
+  }
+
   async getSiteById(id: number): Promise<Site> {
     const result = await pool.query('SELECT * FROM sites WHERE id = $1', [id]);
     return result.rows[0];
