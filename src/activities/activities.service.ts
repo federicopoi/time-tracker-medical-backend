@@ -33,8 +33,8 @@ export class ActivitiesService {
           activity.site_name || '',                              // $6 (fallback site_name)
           activity.building || '',                               // $7 (fallback building)
           activity.service_datetime || new Date().toISOString(), // $8
-          activity.service_endtime || new Date().toISOString(),
-          activity.duration_minutes                              // $9
+          (activity as any).end_time || activity.service_endtime || new Date().toISOString(), // $9
+          activity.duration_minutes                              // $10
         ]
       );
       
