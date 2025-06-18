@@ -1,8 +1,10 @@
-import { Controller, Post, Get, Body, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Post, Get, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { MedicalRecordsService } from './medical-records.service';
 import { MedicalRecord } from './medical-record.interface';
+import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('medical-records')
+@UseGuards(AuthGuard)
 export class MedicalRecordsController {
   constructor(private readonly medicalRecordsService: MedicalRecordsService) {}
 

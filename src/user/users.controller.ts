@@ -4,8 +4,8 @@ import { RolesGuard } from 'src/auth/roles.guard';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { Roles } from 'src/auth/roles.decorator';
 
-// @UseGuards(AuthGuard, RolesGuard)
 @Controller('users')
+@UseGuards(AuthGuard)
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
 
@@ -22,7 +22,6 @@ export class UsersController {
         }
     }
 
-    @UseGuards(AuthGuard)
     @Get()
     async getUsers() {
         try {
