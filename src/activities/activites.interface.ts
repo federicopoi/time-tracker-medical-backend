@@ -9,6 +9,7 @@ export interface Activity {
     site_name:string; 
     service_datetime:Date;
     service_endtime:Date;
+    end_time?: Date; // Alias for service_endtime to match frontend
     duration_minutes:number; // Supports decimal values to account for seconds (e.g., 1.5 minutes = 1 minute 30 seconds)
     created_at?:Date;
 }
