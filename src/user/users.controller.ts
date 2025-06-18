@@ -22,6 +22,7 @@ export class UsersController {
         }
     }
 
+    @UseGuards(AuthGuard)
     @Get()
     async getUsers() {
         try {
