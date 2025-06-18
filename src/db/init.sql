@@ -49,7 +49,12 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     first_name VARCHAR(50),
     last_name VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    primarysite_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_primarysite
+        FOREIGN KEY (primarysite_id)
+        REFERENCES sites(id)
+        ON DELETE SET NULL
 );
 
 -- Create sites table
