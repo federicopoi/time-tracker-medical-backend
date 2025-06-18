@@ -41,6 +41,21 @@ export class SitesController {
     }
   }
 
+  // Get all sites with their building names for admin (no user filtering)
+  @Get('admin/sites-and-buildings')
+  async getAllSitesAndBuildings(@Request() req) {
+    try {
+      // Check if user is admin
+      if (req.user.role !== 'admin') {
+        throw new HttpException('Access denied. Admin role required.', HttpStatus.FORBIDDEN);
+      }
+      return await this.sitesService.getAllSitesAndBuildings();
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw new HttpException('Failed to fetch all sites and buildings', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   // Get all sites with their building names
   @Get('sites-and-buildings')
   async getSitesAndBuildings(@Request() req) {

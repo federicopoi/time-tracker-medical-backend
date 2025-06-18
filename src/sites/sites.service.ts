@@ -56,6 +56,35 @@ export class SitesService {
     return result.rows;
   }
 
+  // Get all sites with their building names for admin (no user filtering)
+  async getAllSitesAndBuildings(): Promise<any[]> {
+    try {
+      const query = `
+        SELECT 
+          s.name as site_name,
+          COALESCE(
+            json_agg(
+              DISTINCT CASE 
+                WHEN b.name IS NOT NULL THEN b.name
+                ELSE NULL
+              END
+            ) FILTER (WHERE b.name IS NOT NULL),
+            '[]'::json
+          ) as building_names
+        FROM sites s
+        LEFT JOIN buildings b ON s.id = b.site_id
+        GROUP BY s.name
+        ORDER BY s.name ASC
+      `;
+      
+      const result = await pool.query(query);
+      
+      return result.rows;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async getSiteById(id: number): Promise<Site> {
     const result = await pool.query('SELECT * FROM sites WHERE id = $1', [id]);
     return result.rows[0];
@@ -78,7 +107,7 @@ export class SitesService {
       throw new Error('Site not found');
     }
     
-    return result.rows[0];
+    return result.rows[0];  
   }
 
   async deleteSite(id: number): Promise<void> {
