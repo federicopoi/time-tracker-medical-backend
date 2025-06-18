@@ -185,6 +185,9 @@ export class UsersService {
       }
       return result.rows[0];
     } catch (error) {
+      if (error.code === '23505') {
+        throw new Error('An account with this email already exists. Please use a different email.');
+      }
       throw error;
     }
   }
