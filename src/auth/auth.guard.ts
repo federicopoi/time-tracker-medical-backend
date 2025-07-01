@@ -12,6 +12,8 @@ interface JwtPayload {
   sub: string;
   email: string;
   role: string;
+  assignedsites_ids: number[];
+  primarysite_id: number;
 }
 
 @Injectable()

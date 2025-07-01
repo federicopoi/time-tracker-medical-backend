@@ -41,9 +41,87 @@ export class PatientsService {
     return result.rows;
   }
 
+  async getPatientsByUserAccess(userId: number): Promise<Patient[]> {
+    try {
+      // Get user's assigned sites
+      const userResult = await pool.query(
+        `SELECT primarysite_id, assignedsites_ids FROM users WHERE id = $1`,
+        [userId]
+      );
+      
+      if (userResult.rows.length === 0) {
+        throw new Error('User not found');
+      }
+      
+      const user = userResult.rows[0];
+      const assignedSiteIds = [user.primarysite_id, ...(user.assignedsites_ids || [])];
+      
+      // Get site names for the assigned site IDs
+      const siteNamesResult = await pool.query(
+        `SELECT name FROM sites WHERE id = ANY($1)`,
+        [assignedSiteIds]
+      );
+      
+      const siteNames = siteNamesResult.rows.map(row => row.name);
+      
+      if (siteNames.length === 0) {
+        return []; // User has no assigned sites
+      }
+      
+      // Get patients from assigned sites
+      const result = await pool.query(
+        `SELECT * FROM patients WHERE site_name = ANY($1) ORDER BY created_at DESC`,
+        [siteNames]
+      );
+      
+      return result.rows;
+    } catch (error) {
+      throw new Error(`Failed to fetch patients for user access: ${error.message}`);
+    }
+  }
+
   async getPatientById(id: number): Promise<Patient> {
     const result = await pool.query('SELECT * FROM patients WHERE id = $1', [id]);
     return result.rows[0];
+  }
+
+  async getPatientByIdWithAccessCheck(id: number, userId: number): Promise<Patient | null> {
+    try {
+      // Get user's assigned sites
+      const userResult = await pool.query(
+        `SELECT primarysite_id, assignedsites_ids FROM users WHERE id = $1`,
+        [userId]
+      );
+      
+      if (userResult.rows.length === 0) {
+        return null;
+      }
+      
+      const user = userResult.rows[0];
+      const assignedSiteIds = [user.primarysite_id, ...(user.assignedsites_ids || [])];
+      
+      // Get site names for the assigned site IDs
+      const siteNamesResult = await pool.query(
+        `SELECT name FROM sites WHERE id = ANY($1)`,
+        [assignedSiteIds]
+      );
+      
+      const siteNames = siteNamesResult.rows.map(row => row.name);
+      
+      if (siteNames.length === 0) {
+        return null; // User has no assigned sites
+      }
+      
+      // Get patient and check if they're in an assigned site
+      const result = await pool.query(
+        `SELECT * FROM patients WHERE id = $1 AND site_name = ANY($2)`,
+        [id, siteNames]
+      );
+      
+      return result.rows[0] || null;
+    } catch (error) {
+      throw new Error(`Failed to fetch patient with access check: ${error.message}`);
+    }
   }
 
   async updatePatient(id: number, patient: Partial<Patient>): Promise<Patient> {
@@ -77,8 +155,39 @@ export class PatientsService {
     }
   }
 
+  async updatePatientWithAccessCheck(id: number, patient: Partial<Patient>, userId: number): Promise<Patient | null> {
+    try {
+      // First check if user has access to this patient
+      const existingPatient = await this.getPatientByIdWithAccessCheck(id, userId);
+      if (!existingPatient) {
+        return null;
+      }
+
+      // Then update the patient
+      return await this.updatePatient(id, patient);
+    } catch (error) {
+      throw new Error(`Failed to update patient with access check: ${error.message}`);
+    }
+  }
+
   async deletePatient(id: number): Promise<void> {
     await pool.query('DELETE FROM patients WHERE id = $1', [id]);
+  }
+
+  async deletePatientWithAccessCheck(id: number, userId: number): Promise<boolean> {
+    try {
+      // First check if user has access to this patient
+      const existingPatient = await this.getPatientByIdWithAccessCheck(id, userId);
+      if (!existingPatient) {
+        return false;
+      }
+
+      // Then delete the patient
+      await this.deletePatient(id);
+      return true;
+    } catch (error) {
+      throw new Error(`Failed to delete patient with access check: ${error.message}`);
+    }
   }
 
   async getPatientsBySiteName(siteName: string): Promise<Patient[]> {
@@ -90,6 +199,41 @@ export class PatientsService {
       return result.rows;
     } catch (error) {
       throw new Error(`Failed to fetch patients for site ${siteName}: ${error.message}`);
+    }
+  }
+
+  async getPatientsBySiteNameWithAccessCheck(siteName: string, userId: number): Promise<Patient[]> {
+    try {
+      // Get user's assigned sites
+      const userResult = await pool.query(
+        `SELECT primarysite_id, assignedsites_ids FROM users WHERE id = $1`,
+        [userId]
+      );
+      
+      if (userResult.rows.length === 0) {
+        throw new Error('User not found');
+      }
+      
+      const user = userResult.rows[0];
+      const assignedSiteIds = [user.primarysite_id, ...(user.assignedsites_ids || [])];
+      
+      // Get site names for the assigned site IDs
+      const siteNamesResult = await pool.query(
+        `SELECT name FROM sites WHERE id = ANY($1)`,
+        [assignedSiteIds]
+      );
+      
+      const userSiteNames = siteNamesResult.rows.map(row => row.name);
+      
+      // Check if user has access to the requested site
+      if (!userSiteNames.includes(siteName)) {
+        return []; // User doesn't have access to this site
+      }
+      
+      // Get patients from the site
+      return await this.getPatientsBySiteName(siteName);
+    } catch (error) {
+      throw new Error(`Failed to fetch patients for site with access check: ${error.message}`);
     }
   }
 }

@@ -39,7 +39,7 @@ export class SitesService {
       query = `
         SELECT s.* FROM sites s
         JOIN users u ON u.id = $1
-        WHERE s.id = ANY(u.assignedsites_ids)
+        WHERE s.id = ANY(u.assignedsites_ids) OR s.id = u.primarysite_id
         ORDER BY s.name ASC
       `;
       params = [userId];
@@ -140,15 +140,15 @@ export class SitesService {
         LEFT JOIN buildings b ON s.id = b.site_id
       `;
       
-             let params: any[] = [];
+      let params: any[] = [];
        
-       if (userId) {
-         query += `
-           JOIN users u ON u.id = $1
-           WHERE s.id = ANY(u.assignedsites_ids)
-         `;
-         params = [userId];
-       }
+      if (userId) {
+        query += `
+          JOIN users u ON u.id = $1
+          WHERE s.id = ANY(u.assignedsites_ids) OR s.id = u.primarysite_id
+        `;
+        params = [userId];
+      }
       
       query += `
         GROUP BY s.name

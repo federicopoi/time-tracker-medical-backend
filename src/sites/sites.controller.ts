@@ -20,6 +20,14 @@ export class SitesController {
   async getSites(@Request() req) {
     try {
       const userId = parseInt(req.user.sub);
+      const userRole = req.user.role;
+      
+      // If user is admin, get all sites
+      if (userRole === 'admin') {
+        return await this.sitesService.getAllSitesByAdmin();
+      }
+      
+      // For non-admin users, get only sites they're assigned to
       return await this.sitesService.getSites(userId);
     } catch (error) {
       throw new HttpException('Failed to fetch sites', HttpStatus.INTERNAL_SERVER_ERROR);
@@ -61,6 +69,14 @@ export class SitesController {
   async getSitesAndBuildings(@Request() req) {
     try {
       const userId = parseInt(req.user.sub);
+      const userRole = req.user.role;
+      
+      // If user is admin, get all sites and buildings
+      if (userRole === 'admin') {
+        return await this.sitesService.getAllSitesAndBuildings();
+      }
+      
+      // For non-admin users, get only sites they're assigned to
       return await this.sitesService.getSitesAndBuildings(userId);
     } catch (error) {
       throw new HttpException('Failed to fetch sites and buildings', HttpStatus.INTERNAL_SERVER_ERROR);

@@ -28,7 +28,9 @@ export class AuthService {
       sub: result.id,
       email: result.email,
       name: `${result.first_name} ${result.last_name}`,
-      role: result.role
+      role: result.role,
+      assignedsites_ids: result.assignedsites_ids,
+      primarysite_id: result.primarysite_id
     };
   
     // Create response without password

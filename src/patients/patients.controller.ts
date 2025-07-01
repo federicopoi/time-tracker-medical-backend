@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, HttpException, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, HttpException, HttpStatus, UseGuards, Request } from '@nestjs/common';
 import { PatientsService } from './patients.service';
 import { CreatePatientDto } from './dto/create-patient.dto';
 import { Patient } from './patient.interface';
@@ -21,20 +21,42 @@ export class PatientsController {
   }
 
   @Get()
-  async getPatients() {
+  async getPatients(@Request() req) {
     try {
-      return await this.patientsService.getPatients();
+      const userId = parseInt(req.user.sub);
+      const userRole = req.user.role;
+      
+      // If user is admin, get all patients
+      if (userRole === 'admin') {
+        return await this.patientsService.getPatients();
+      }
+      
+      // For non-admin users, get only patients from their assigned sites
+      return await this.patientsService.getPatientsByUserAccess(userId);
     } catch (error) {
       throw new HttpException('Failed to fetch patients', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   @Get(':id')
-  async getPatientById(@Param('id') id: string) {
+  async getPatientById(@Param('id') id: string, @Request() req) {
     try {
-      const patient = await this.patientsService.getPatientById(parseInt(id));
+      const userId = parseInt(req.user.sub);
+      const userRole = req.user.role;
+      
+      // If user is admin, get any patient
+      if (userRole === 'admin') {
+        const patient = await this.patientsService.getPatientById(parseInt(id));
+        if (!patient) {
+          throw new HttpException('Patient not found', HttpStatus.NOT_FOUND);
+        }
+        return patient;
+      }
+      
+      // For non-admin users, check if they have access to this patient
+      const patient = await this.patientsService.getPatientByIdWithAccessCheck(parseInt(id), userId);
       if (!patient) {
-        throw new HttpException('Patient not found', HttpStatus.NOT_FOUND);
+        throw new HttpException('Patient not found or access denied', HttpStatus.NOT_FOUND);
       }
       return patient;
     } catch (error) {
@@ -44,11 +66,24 @@ export class PatientsController {
   }
 
   @Put(':id')
-  async updatePatient(@Param('id') id: string, @Body() patient: Partial<Patient>) {
+  async updatePatient(@Param('id') id: string, @Body() patient: Partial<Patient>, @Request() req) {
     try {
-      const updatedPatient = await this.patientsService.updatePatient(parseInt(id), patient);
+      const userId = parseInt(req.user.sub);
+      const userRole = req.user.role;
+      
+      // If user is admin, update any patient
+      if (userRole === 'admin') {
+        const updatedPatient = await this.patientsService.updatePatient(parseInt(id), patient);
+        if (!updatedPatient) {
+          throw new HttpException('Patient not found', HttpStatus.NOT_FOUND);
+        }
+        return updatedPatient;
+      }
+      
+      // For non-admin users, check if they have access to this patient
+      const updatedPatient = await this.patientsService.updatePatientWithAccessCheck(parseInt(id), patient, userId);
       if (!updatedPatient) {
-        throw new HttpException('Patient not found', HttpStatus.NOT_FOUND);
+        throw new HttpException('Patient not found or access denied', HttpStatus.NOT_FOUND);
       }
       return updatedPatient;
     } catch (error) {
@@ -58,19 +93,42 @@ export class PatientsController {
   }
 
   @Delete(':id')
-  async deletePatient(@Param('id') id: string) {
+  async deletePatient(@Param('id') id: string, @Request() req) {
     try {
-      await this.patientsService.deletePatient(parseInt(id));
+      const userId = parseInt(req.user.sub);
+      const userRole = req.user.role;
+      
+      // If user is admin, delete any patient
+      if (userRole === 'admin') {
+        await this.patientsService.deletePatient(parseInt(id));
+        return { message: 'Patient deleted successfully' };
+      }
+      
+      // For non-admin users, check if they have access to this patient
+      const deleted = await this.patientsService.deletePatientWithAccessCheck(parseInt(id), userId);
+      if (!deleted) {
+        throw new HttpException('Patient not found or access denied', HttpStatus.NOT_FOUND);
+      }
       return { message: 'Patient deleted successfully' };
     } catch (error) {
+      if (error instanceof HttpException) throw error;
       throw new HttpException('Failed to delete patient', HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   @Get('site/:siteName')
-  async getPatientsBySiteName(@Param('siteName') siteName: string) {
+  async getPatientsBySiteName(@Param('siteName') siteName: string, @Request() req) {
     try {
-      return await this.patientsService.getPatientsBySiteName(siteName);
+      const userId = parseInt(req.user.sub);
+      const userRole = req.user.role;
+      
+      // If user is admin, get all patients for the site
+      if (userRole === 'admin') {
+        return await this.patientsService.getPatientsBySiteName(siteName);
+      }
+      
+      // For non-admin users, check if they have access to this site
+      return await this.patientsService.getPatientsBySiteNameWithAccessCheck(siteName, userId);
     } catch (error) {
       throw new HttpException(`Failed to fetch patients for site: ${error.message}`, HttpStatus.INTERNAL_SERVER_ERROR);
     }
