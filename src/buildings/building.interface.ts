@@ -16,4 +16,4 @@ export interface UpdateBuildingDto {
   name?: string;
   site_id?: number;
   is_active?: boolean;
-} 
+}

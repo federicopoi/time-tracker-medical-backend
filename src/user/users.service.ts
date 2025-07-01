@@ -1,6 +1,11 @@
-import { Injectable, ConflictException, BadRequestException, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  ConflictException,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
 import { pool } from "src/config/database.config";
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from "bcrypt";
 
 export interface User {
   id?: number;
@@ -10,8 +15,8 @@ export interface User {
   password: string;
   created_at?: Date;
   role: "admin" | "nurse" | "pharmacist";
-  assignedsites_ids:number[];
-  primarysite_id:number;
+  assignedsites_ids: number[];
+  primarysite_id: number;
   new_password?: string;
   current_password?: string;
 }
@@ -20,23 +25,26 @@ export interface User {
 export class UsersService {
   private readonly SALT_ROUNDS = 10;
 
-  async findOne(email: string, password: string): Promise<User | 'user_not_found' | 'invalid_password'> {
+  async findOne(
+    email: string,
+    password: string,
+  ): Promise<User | "user_not_found" | "invalid_password"> {
     try {
       const normalizedEmail = email.toLowerCase();
-      
+
       const result = await pool.query(
         "SELECT * FROM users WHERE LOWER(email) = $1",
-        [normalizedEmail]
+        [normalizedEmail],
       );
-      
+
       const user = result.rows[0];
       if (!user) {
-        return 'user_not_found';
+        return "user_not_found";
       }
 
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
-        return 'invalid_password';
+        return "invalid_password";
       }
 
       return user;
@@ -47,13 +55,23 @@ export class UsersService {
 
   async createUser(user: User): Promise<User> {
     try {
-      if (!user.first_name || !user.last_name || !user.email || !user.password || !user.role || !user.primarysite_id || !user.assignedsites_ids) {
-        throw new BadRequestException('Missing required fields');
+      if (
+        !user.first_name ||
+        !user.last_name ||
+        !user.email ||
+        !user.password ||
+        !user.role ||
+        !user.primarysite_id ||
+        !user.assignedsites_ids
+      ) {
+        throw new BadRequestException("Missing required fields");
       }
 
       const normalizedEmail = user.email.toLowerCase();
       const hashedPassword = await bcrypt.hash(user.password, this.SALT_ROUNDS);
-      const assignedsites_ids = Array.isArray(user.assignedsites_ids) ? user.assignedsites_ids : [user.assignedsites_ids];
+      const assignedsites_ids = Array.isArray(user.assignedsites_ids)
+        ? user.assignedsites_ids
+        : [user.assignedsites_ids];
 
       const result = await pool.query(
         `INSERT INTO users (
@@ -66,16 +84,18 @@ export class UsersService {
           hashedPassword,
           user.role,
           user.primarysite_id,
-          assignedsites_ids
-        ]
+          assignedsites_ids,
+        ],
       );
-      
+
       return result.rows[0];
     } catch (error) {
-      if (error.code === '23505') {
-        throw new ConflictException('An account with this email already exists. Please use a different email.');
-      } else if (error.code === '22P02') {
-        throw new BadRequestException('Invalid data format');
+      if (error.code === "23505") {
+        throw new ConflictException(
+          "An account with this email already exists. Please use a different email.",
+        );
+      } else if (error.code === "22P02") {
+        throw new BadRequestException("Invalid data format");
       }
       throw new BadRequestException(`Database error: ${error.message}`);
     }
@@ -105,7 +125,7 @@ export class UsersService {
         LEFT JOIN assigned_sites_agg asa ON asa.user_id = u.id
         ORDER BY u.last_name, u.first_name
       `);
-      
+
       return result.rows;
     } catch (error) {
       throw error;
@@ -114,7 +134,8 @@ export class UsersService {
 
   async getUserById(id: number): Promise<any | null> {
     try {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         WITH assigned_sites_agg AS (
           SELECT 
             u.id as user_id,
@@ -136,8 +157,10 @@ export class UsersService {
         LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
         LEFT JOIN assigned_sites_agg asa ON asa.user_id = u.id
         WHERE u.id = $1
-      `, [id]);
-      
+      `,
+        [id],
+      );
+
       return result.rows[0] || null;
     } catch (error) {
       throw error;
@@ -150,7 +173,10 @@ export class UsersService {
 
   async updateUser(id: number, user: Partial<User>): Promise<User> {
     try {
-      const currentUser = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
+      const currentUser = await pool.query(
+        "SELECT * FROM users WHERE id = $1",
+        [id],
+      );
       if (currentUser.rows.length === 0) {
         throw new NotFoundException("User not found");
       }
@@ -185,8 +211,10 @@ export class UsersService {
       }
       return result.rows[0];
     } catch (error) {
-      if (error.code === '23505') {
-        throw new ConflictException('An account with this email already exists. Please use a different email.');
+      if (error.code === "23505") {
+        throw new ConflictException(
+          "An account with this email already exists. Please use a different email.",
+        );
       }
       throw error;
     }
@@ -194,7 +222,8 @@ export class UsersService {
 
   async getUsersBySiteId(siteId: number): Promise<any[]> {
     try {
-      const result = await pool.query(`
+      const result = await pool.query(
+        `
         WITH assigned_sites_agg AS (
           SELECT 
             u.id as user_id,
@@ -216,8 +245,10 @@ export class UsersService {
         LEFT JOIN assigned_sites_agg asa ON asa.user_id = u.id
         WHERE u.primarysite_id = $1 OR $1 = ANY(u.assignedsites_ids)
         ORDER BY u.last_name, u.first_name
-      `, [siteId]);
-      
+      `,
+        [siteId],
+      );
+
       return result.rows;
     } catch (error) {
       throw error;

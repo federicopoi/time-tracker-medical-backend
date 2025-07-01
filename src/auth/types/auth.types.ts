@@ -9,10 +9,10 @@ export interface AuthResponse {
     primarysite_id: number;
     assignedsites_ids: number[];
     created_at?: Date;
-  }
+  };
 }
 
 export interface SignInDto {
   email: string;
   password: string;
-} 
+}

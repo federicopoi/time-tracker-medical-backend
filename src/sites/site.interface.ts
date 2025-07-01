@@ -25,4 +25,4 @@ export interface UpdateSiteDto {
   state?: string;
   zip?: string;
   is_active?: boolean;
-} 
+}

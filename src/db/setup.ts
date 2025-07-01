@@ -1,10 +1,11 @@
-import { Pool } from 'pg';
+import { Pool } from "pg";
 
 const pool = new Pool({
-  connectionString: 'postgresql://neondb_owner:npg_VtEe7diyIOT4@ep-divine-cell-a8xo5x52-pooler.eastus2.azure.neon.tech/neondb?sslmode=require',
+  connectionString:
+    "postgresql://neondb_owner:npg_VtEe7diyIOT4@ep-divine-cell-a8xo5x52-pooler.eastus2.azure.neon.tech/neondb?sslmode=require",
   ssl: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: false,
+  },
 });
 
 async function setupDatabase() {
@@ -26,9 +27,8 @@ async function setupDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('Patients table created successfully');
+    console.log("Patients table created successfully");
 
-   
     // Create activities table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS activities (
@@ -48,7 +48,7 @@ async function setupDatabase() {
           ON DELETE CASCADE
       );
     `);
-    console.log('Activities table created successfully');
+    console.log("Activities table created successfully");
     // Check if tables were created
     const tables = await pool.query(`
       SELECT table_name 
@@ -56,13 +56,15 @@ async function setupDatabase() {
       WHERE table_schema='public' 
       AND table_type='BASE TABLE';
     `);
-    console.log('Available tables:', tables.rows.map(row => row.table_name));
-
+    console.log(
+      "Available tables:",
+      tables.rows.map((row) => row.table_name),
+    );
   } catch (error) {
-    console.error('Error setting up database:', error);
+    console.error("Error setting up database:", error);
   } finally {
     await pool.end();
   }
 }
 
-setupDatabase(); 
+setupDatabase();

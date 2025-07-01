@@ -94,7 +94,7 @@ export class PatientsService {
       );
       
       if (userResult.rows.length === 0) {
-        return null;
+        throw new Error('User not found');
       }
       
       const user = userResult.rows[0];
@@ -106,16 +106,16 @@ export class PatientsService {
         [assignedSiteIds]
       );
       
-      const siteNames = siteNamesResult.rows.map(row => row.name);
+      const userSiteNames = siteNamesResult.rows.map(row => row.name);
       
-      if (siteNames.length === 0) {
+      if (userSiteNames.length === 0) {
         return null; // User has no assigned sites
       }
       
-      // Get patient and check if they're in an assigned site
+      // Get patient and check if user has access to the patient's site
       const result = await pool.query(
         `SELECT * FROM patients WHERE id = $1 AND site_name = ANY($2)`,
-        [id, siteNames]
+        [id, userSiteNames]
       );
       
       return result.rows[0] || null;

@@ -10,4 +10,4 @@ export interface MedicalRecord {
   opioids: boolean;
   fallSinceLastVisit: boolean;
   createdAt?: Date;
-} 
+}

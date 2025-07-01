@@ -1,10 +1,12 @@
-import { Injectable } from '@nestjs/common';
-import { pool } from '../config/database.config';
-import { MedicalRecord } from './medical-record.interface';
+import { Injectable } from "@nestjs/common";
+import { pool } from "../config/database.config";
+import { MedicalRecord } from "./medical-record.interface";
 
 @Injectable()
 export class MedicalRecordsService {
-  async createMedicalRecord(medicalRecord: MedicalRecord): Promise<MedicalRecord> {
+  async createMedicalRecord(
+    medicalRecord: MedicalRecord,
+  ): Promise<MedicalRecord> {
     try {
       const result = await pool.query(
         `INSERT INTO medical_records (
@@ -20,8 +22,8 @@ export class MedicalRecordsService {
           medicalRecord.benzodiazepines,
           medicalRecord.antipsychotics,
           medicalRecord.opioids,
-          medicalRecord.fallSinceLastVisit
-        ]
+          medicalRecord.fallSinceLastVisit,
+        ],
       );
 
       return this.mapToMedicalRecord(result.rows[0]);
@@ -30,24 +32,28 @@ export class MedicalRecordsService {
     }
   }
 
-  async getMedicalRecordsByPatientId(patientId: number): Promise<MedicalRecord[]> {
+  async getMedicalRecordsByPatientId(
+    patientId: number,
+  ): Promise<MedicalRecord[]> {
     try {
       const result = await pool.query(
-        'SELECT * FROM medical_records WHERE patient_id = $1 ORDER BY created_at DESC',
-        [patientId]
+        "SELECT * FROM medical_records WHERE patient_id = $1 ORDER BY created_at DESC",
+        [patientId],
       );
 
-      return result.rows.map(row => this.mapToMedicalRecord(row));
+      return result.rows.map((row) => this.mapToMedicalRecord(row));
     } catch (error) {
       throw new Error(`Failed to get medical records: ${error.message}`);
     }
   }
 
-  async getLatestMedicalRecordByPatientId(patientId: number): Promise<MedicalRecord | null> {
+  async getLatestMedicalRecordByPatientId(
+    patientId: number,
+  ): Promise<MedicalRecord | null> {
     try {
       const result = await pool.query(
-        'SELECT * FROM medical_records WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 1',
-        [patientId]
+        "SELECT * FROM medical_records WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 1",
+        [patientId],
       );
 
       if (result.rows.length === 0) {
@@ -72,7 +78,7 @@ export class MedicalRecordsService {
       antipsychotics: row.antipsychotics,
       opioids: row.opioids,
       fallSinceLastVisit: row.fall_since_last_visit,
-      createdAt: row.created_at
+      createdAt: row.created_at,
     };
   }
-} 
+}

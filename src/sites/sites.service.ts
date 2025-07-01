@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { pool } from '../config/database.config';
+import { Injectable } from "@nestjs/common";
+import { pool } from "../config/database.config";
 
 export interface Site {
   id?: number;
@@ -26,13 +26,13 @@ export class SitesService {
         site.state,
         site.zip,
         site.is_active ?? true,
-      ]
+      ],
     );
     return result.rows[0];
   }
 
   async getSites(userId?: number): Promise<Site[]> {
-    let query = 'SELECT * FROM sites';
+    let query = "SELECT * FROM sites";
     let params: any[] = [];
 
     if (userId) {
@@ -44,7 +44,7 @@ export class SitesService {
       `;
       params = [userId];
     } else {
-      query += ' ORDER BY name ASC';
+      query += " ORDER BY name ASC";
     }
 
     const result = await pool.query(query, params);
@@ -52,7 +52,7 @@ export class SitesService {
   }
 
   async getAllSitesByAdmin(): Promise<Site[]> {
-    const result = await pool.query('SELECT * FROM sites ORDER BY name ASC');
+    const result = await pool.query("SELECT * FROM sites ORDER BY name ASC");
     return result.rows;
   }
 
@@ -76,9 +76,9 @@ export class SitesService {
         GROUP BY s.name
         ORDER BY s.name ASC
       `;
-      
+
       const result = await pool.query(query);
-      
+
       return result.rows;
     } catch (error) {
       throw error;
@@ -86,36 +86,41 @@ export class SitesService {
   }
 
   async getSiteById(id: number): Promise<Site> {
-    const result = await pool.query('SELECT * FROM sites WHERE id = $1', [id]);
+    const result = await pool.query("SELECT * FROM sites WHERE id = $1", [id]);
     return result.rows[0];
   }
 
   async updateSite(id: number, site: Partial<Site>): Promise<Site> {
     const fields = Object.keys(site);
     const values = Object.values(site);
-    
+
     if (fields.length === 0) {
-      throw new Error('No fields to update');
+      throw new Error("No fields to update");
     }
-    
-    const setString = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+
+    const setString = fields
+      .map((field, index) => `${field} = $${index + 1}`)
+      .join(", ");
     const query = `UPDATE sites SET ${setString} WHERE id = $${fields.length + 1} RETURNING *`;
-    
+
     const result = await pool.query(query, [...values, id]);
-    
+
     if (result.rows.length === 0) {
-      throw new Error('Site not found');
+      throw new Error("Site not found");
     }
-    
-    return result.rows[0];  
+
+    return result.rows[0];
   }
 
   async deleteSite(id: number): Promise<void> {
     try {
-      await pool.query('DELETE FROM sites WHERE id = $1', [id]);
+      await pool.query("DELETE FROM sites WHERE id = $1", [id]);
     } catch (error) {
-      if (error.code === '23503') { // Foreign key violation
-        throw new Error('Cannot delete site: There are users assigned to this site. Please reassign users to different sites before deleting.');
+      if (error.code === "23503") {
+        // Foreign key violation
+        throw new Error(
+          "Cannot delete site: There are users assigned to this site. Please reassign users to different sites before deleting.",
+        );
       }
       throw error;
     }
@@ -139,9 +144,9 @@ export class SitesService {
         FROM sites s
         LEFT JOIN buildings b ON s.id = b.site_id
       `;
-      
+
       let params: any[] = [];
-       
+
       if (userId) {
         query += `
           JOIN users u ON u.id = $1
@@ -149,17 +154,17 @@ export class SitesService {
         `;
         params = [userId];
       }
-      
+
       query += `
         GROUP BY s.name
         ORDER BY s.name ASC
       `;
-      
+
       const result = await pool.query(query, params);
-      
+
       return result.rows;
     } catch (error) {
       throw error;
     }
   }
-} 
+}
