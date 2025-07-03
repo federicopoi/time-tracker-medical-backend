@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Post,
   Request,
+  Response,
   UseGuards,
 } from "@nestjs/common";
 import { AuthGuard } from "./auth.guard";
@@ -18,9 +19,25 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post("login")
-  async signIn(@Body() signInDto: SignInDto): Promise<AuthResponse> {
-    // NotFoundException (404) and UnauthorizedException (401) will be handled automatically
-    return await this.authService.signIn(signInDto.email, signInDto.password);
+  async signIn(@Body() signInDto: SignInDto, @Response() res): Promise<void> {
+    const result = await this.authService.signIn(signInDto.email, signInDto.password);
+    // Set JWT as HttpOnly, Secure cookie
+    res.cookie('auth_token', result.access_token, {
+      httpOnly: true,
+      // Only set secure in production so cookies work on localhost (HTTP)
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'strict',
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      path: '/',
+    });
+    // Return user info only (no token)
+    res.json({ user: result.user });
+  }
+
+  @Post("logout")
+  async logout(@Response() res): Promise<void> {
+    res.clearCookie('auth_token', { path: '/' });
+    res.status(200).json({ message: 'Logged out' });
   }
 
   @UseGuards(AuthGuard)
