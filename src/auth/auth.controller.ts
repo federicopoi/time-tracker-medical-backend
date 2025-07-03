@@ -21,22 +21,29 @@ export class AuthController {
   @Post("login")
   async signIn(@Body() signInDto: SignInDto, @Response() res): Promise<void> {
     const result = await this.authService.signIn(signInDto.email, signInDto.password);
-    // Set JWT as HttpOnly, Secure cookie
+    
+    // Set JWT as HttpOnly, Secure cookie with proper cross-origin settings
     res.cookie('auth_token', result.access_token, {
       httpOnly: true,
-      // Only set secure in production so cookies work on localhost (HTTP)
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', // Allow cookies on cross-site requests
+      secure: true, // Always use secure in both dev and prod since we're using HTTPS
+      sameSite: 'none', // Required for cross-origin cookies
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: '/',
     });
+    
     // Return user info only (no token)
     res.json({ user: result.user });
   }
 
   @Post("logout")
   async logout(@Response() res): Promise<void> {
-    res.clearCookie('auth_token', { path: '/' });
+    // Clear the cookie with the same settings used to set it
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+    });
     res.status(200).json({ message: 'Logged out' });
   }
 

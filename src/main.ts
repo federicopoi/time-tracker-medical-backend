@@ -12,9 +12,14 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       "http://localhost:5173",
-      "https://time-tracker-medical.vercel.app"
+      "https://time-tracker-medical.vercel.app",
+      /https:\/\/time-tracker-medical-.*\.vercel\.app$/
     ],
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie'],
+    maxAge: 86400,
   });
   const port = process.env.PORT || 3000;
   console.log(`Application is running on port ${port}`);
