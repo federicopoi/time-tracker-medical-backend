@@ -10,11 +10,12 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: "*", 
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    origin: [
+      "http://localhost:5173",
+      "https://time-tracker-medical.vercel.app"
+    ],
     credentials: true,
   });
-
   const port = process.env.PORT || 3000;
   console.log(`Application is running on port ${port}`);
   await app.listen(port, "0.0.0.0"); // Important: Listen on 0.0.0.0 for Railway
