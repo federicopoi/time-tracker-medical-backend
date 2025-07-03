@@ -26,7 +26,7 @@ export class AuthController {
       httpOnly: true,
       // Only set secure in production so cookies work on localhost (HTTP)
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'strict',
+      sameSite: 'lax', // Allow cookies on cross-site requests
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: '/',
     });
