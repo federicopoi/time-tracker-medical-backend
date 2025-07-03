@@ -42,4 +42,22 @@ export class AuthService {
       user: userWithoutPassword,
     };
   }
+
+  async getProfile(userId: number) {
+    const user = await this.userService.getUserById(userId);
+    if (!user) {
+      throw new NotFoundException("User not found");
+    }
+    
+    return {
+      id: user.id,
+      first_name: user.name.split(' ')[0], // Extract first name from name field
+      last_name: user.name.split(' ').slice(1).join(' '), // Extract last name from name field
+      email: user.email,
+      role: user.role,
+      primarysite: user.primary_site,
+      assignedsites: user.assigned_sites || [],
+      created_at: new Date(), // This will be set by the database
+    };
+  }
 }
