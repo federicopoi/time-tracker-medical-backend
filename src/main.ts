@@ -9,9 +9,8 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  // Enable CORS
   app.enableCors({
-    origin: "http://localhost:5173", // Use your frontend URL in production
+    origin: "*", 
     methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
     credentials: true,
   });
