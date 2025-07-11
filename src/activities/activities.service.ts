@@ -138,7 +138,7 @@ export class ActivitiesService {
       `
       SELECT 
         a.*,
-        p.site_name,
+        s.name as site_name,
         p.building,
         CONCAT(p.first_name, ' ', p.last_name) as patient_name,
         CONCAT(
@@ -148,6 +148,7 @@ export class ActivitiesService {
       FROM activities a
       LEFT JOIN patients p ON a.patient_id = p.id
       LEFT JOIN users u ON a.user_id = u.id
+      LEFT JOIN sites s ON a.site_id = s.id
       WHERE a.id = $1
     `,
       [id],
@@ -206,8 +207,9 @@ export class ActivitiesService {
       `
       SELECT 
         a.*,
-        p.site_name,
+        s.name as site_name,
         p.building,
+        CONCAT(p.first_name, ' ', p.last_name) as patient_name,
         CONCAT(
           UPPER(LEFT(u.first_name, 1)),
           UPPER(LEFT(u.last_name, 1))
@@ -215,6 +217,7 @@ export class ActivitiesService {
       FROM activities a
       LEFT JOIN patients p ON a.patient_id = p.id
       LEFT JOIN users u ON a.user_id = u.id
+      LEFT JOIN sites s ON a.site_id = s.id
       WHERE a.patient_id = $1
       ORDER BY a.created_at DESC
     `,
@@ -274,18 +277,23 @@ export class ActivitiesService {
     userId: number,
   ): Promise<boolean> {
     try {
-      // First check if user has access to this activity
-      const existingActivity = await this.getActivityByIdWithAccessCheck(
-        id,
-        userId,
+      const result = await pool.query(
+        `
+        DELETE FROM activities 
+        WHERE id = $1
+        AND EXISTS (
+          SELECT 1 FROM users current_user
+          WHERE current_user.id = $2
+          AND (
+            activities.site_id = current_user.primarysite_id
+            OR activities.site_id = ANY(current_user.assignedsites_ids)
+          )
+        )
+      `,
+        [id, userId],
       );
-      if (!existingActivity) {
-        return false;
-      }
-
-      // Then delete the activity
-      await this.deleteActivity(id);
-      return true;
+      
+      return result.rowCount > 0;
     } catch (error) {
       throw new Error(
         `Failed to delete activity with access check: ${error.message}`,
@@ -295,11 +303,6 @@ export class ActivitiesService {
 
   async updateActivity(id: number, activityDto: any): Promise<Activity> {
     try {
-      const currentActivity = await this.getActivityById(id);
-      if (!currentActivity) {
-        throw new Error("Activity not found");
-      }
-
       // Filter out undefined values and handle data transformation
       const updateFields: Partial<Activity> = {};
 
@@ -363,7 +366,7 @@ export class ActivitiesService {
       const result = await pool.query(query, [...values, id]);
 
       if (result.rows.length === 0) {
-        throw new Error("Failed to update activity");
+        throw new Error("Activity not found");
       }
 
       // Return the updated activity with enriched data
