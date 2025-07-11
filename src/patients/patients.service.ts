@@ -43,35 +43,22 @@ export class PatientsService {
 
   async getPatientsByUserAccess(userId: number): Promise<Patient[]> {
     try {
-      // Get user's assigned sites
-      const userResult = await pool.query(
-        `SELECT primarysite_id, assignedsites_ids FROM users WHERE id = $1`,
-        [userId]
-      );
-      
-      if (userResult.rows.length === 0) {
-        throw new Error('User not found');
-      }
-      
-      const user = userResult.rows[0];
-      const assignedSiteIds = [user.primarysite_id, ...(user.assignedsites_ids || [])];
-      
-      // Get site names for the assigned site IDs
-      const siteNamesResult = await pool.query(
-        `SELECT name FROM sites WHERE id = ANY($1)`,
-        [assignedSiteIds]
-      );
-      
-      const siteNames = siteNamesResult.rows.map(row => row.name);
-      
-      if (siteNames.length === 0) {
-        return []; // User has no assigned sites
-      }
-      
-      // Get patients from assigned sites
       const result = await pool.query(
-        `SELECT * FROM patients WHERE site_name = ANY($1) ORDER BY created_at DESC`,
-        [siteNames]
+        `
+        SELECT p.*, s.name as site_name
+        FROM patients p
+        LEFT JOIN sites s ON p.site_id = s.id
+        WHERE EXISTS (
+          SELECT 1 FROM users u
+          WHERE u.id = $1
+          AND (
+            p.site_id = u.primarysite_id
+            OR p.site_id = ANY(u.assignedsites_ids)
+          )
+        )
+        ORDER BY p.created_at DESC
+      `,
+        [userId]
       );
       
       return result.rows;
@@ -87,35 +74,22 @@ export class PatientsService {
 
   async getPatientByIdWithAccessCheck(id: number, userId: number): Promise<Patient | null> {
     try {
-      // Get user's assigned sites
-      const userResult = await pool.query(
-        `SELECT primarysite_id, assignedsites_ids FROM users WHERE id = $1`,
-        [userId]
-      );
-      
-      if (userResult.rows.length === 0) {
-        throw new Error('User not found');
-      }
-      
-      const user = userResult.rows[0];
-      const assignedSiteIds = [user.primarysite_id, ...(user.assignedsites_ids || [])];
-      
-      // Get site names for the assigned site IDs
-      const siteNamesResult = await pool.query(
-        `SELECT name FROM sites WHERE id = ANY($1)`,
-        [assignedSiteIds]
-      );
-      
-      const userSiteNames = siteNamesResult.rows.map(row => row.name);
-      
-      if (userSiteNames.length === 0) {
-        return null; // User has no assigned sites
-      }
-      
-      // Get patient and check if user has access to the patient's site
       const result = await pool.query(
-        `SELECT * FROM patients WHERE id = $1 AND site_name = ANY($2)`,
-        [id, userSiteNames]
+        `
+        SELECT p.*, s.name as site_name
+        FROM patients p
+        LEFT JOIN sites s ON p.site_id = s.id
+        WHERE p.id = $1
+        AND EXISTS (
+          SELECT 1 FROM users u
+          WHERE u.id = $2
+          AND (
+            p.site_id = u.primarysite_id
+            OR p.site_id = ANY(u.assignedsites_ids)
+          )
+        )
+      `,
+        [id, userId]
       );
       
       return result.rows[0] || null;
@@ -204,34 +178,26 @@ export class PatientsService {
 
   async getPatientsBySiteNameWithAccessCheck(siteName: string, userId: number): Promise<Patient[]> {
     try {
-      // Get user's assigned sites
-      const userResult = await pool.query(
-        `SELECT primarysite_id, assignedsites_ids FROM users WHERE id = $1`,
-        [userId]
+      const result = await pool.query(
+        `
+        SELECT p.*, s.name as site_name
+        FROM patients p
+        LEFT JOIN sites s ON p.site_id = s.id
+        WHERE s.name = $1
+        AND EXISTS (
+          SELECT 1 FROM users u
+          WHERE u.id = $2
+          AND (
+            p.site_id = u.primarysite_id
+            OR p.site_id = ANY(u.assignedsites_ids)
+          )
+        )
+        ORDER BY p.created_at DESC
+      `,
+        [siteName, userId]
       );
       
-      if (userResult.rows.length === 0) {
-        throw new Error('User not found');
-      }
-      
-      const user = userResult.rows[0];
-      const assignedSiteIds = [user.primarysite_id, ...(user.assignedsites_ids || [])];
-      
-      // Get site names for the assigned site IDs
-      const siteNamesResult = await pool.query(
-        `SELECT name FROM sites WHERE id = ANY($1)`,
-        [assignedSiteIds]
-      );
-      
-      const userSiteNames = siteNamesResult.rows.map(row => row.name);
-      
-      // Check if user has access to the requested site
-      if (!userSiteNames.includes(siteName)) {
-        return []; // User doesn't have access to this site
-      }
-      
-      // Get patients from the site
-      return await this.getPatientsBySiteName(siteName);
+      return result.rows;
     } catch (error) {
       throw new Error(`Failed to fetch patients for site with access check: ${error.message}`);
     }
