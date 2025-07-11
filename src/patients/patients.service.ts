@@ -100,13 +100,12 @@ export class PatientsService {
 
   async updatePatient(id: number, patient: Partial<Patient>): Promise<Patient> {
     try {
-      const currentPatient = await this.getPatientById(id);
-      if (!currentPatient) {
-        throw new Error('Patient not found');
-      }
-
       const fields = Object.keys(patient).filter(key => patient[key] !== undefined);
       const values = fields.map(field => patient[field]);
+      
+      if (fields.length === 0) {
+        throw new Error('No fields to update');
+      }
       
       const setString = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
       
@@ -120,7 +119,7 @@ export class PatientsService {
       const result = await pool.query(query, [...values, id]);
       
       if (result.rows.length === 0) {
-        throw new Error('Failed to update patient');
+        throw new Error('Patient not found');
       }
       
       return result.rows[0];
@@ -131,14 +130,33 @@ export class PatientsService {
 
   async updatePatientWithAccessCheck(id: number, patient: Partial<Patient>, userId: number): Promise<Patient | null> {
     try {
-      // First check if user has access to this patient
-      const existingPatient = await this.getPatientByIdWithAccessCheck(id, userId);
-      if (!existingPatient) {
-        return null;
+      const fields = Object.keys(patient).filter(key => patient[key] !== undefined);
+      const values = fields.map(field => patient[field]);
+      
+      if (fields.length === 0) {
+        throw new Error('No fields to update');
       }
-
-      // Then update the patient
-      return await this.updatePatient(id, patient);
+      
+      const setString = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
+      
+      const query = `
+        UPDATE patients 
+        SET ${setString} 
+        WHERE id = $${fields.length + 1}
+        AND EXISTS (
+          SELECT 1 FROM users u
+          WHERE u.id = $${fields.length + 2}
+          AND (
+            patients.site_id = u.primarysite_id
+            OR patients.site_id = ANY(u.assignedsites_ids)
+          )
+        )
+        RETURNING *
+      `;
+      
+      const result = await pool.query(query, [...values, id, userId]);
+      
+      return result.rows[0] || null;
     } catch (error) {
       throw new Error(`Failed to update patient with access check: ${error.message}`);
     }
@@ -150,15 +168,23 @@ export class PatientsService {
 
   async deletePatientWithAccessCheck(id: number, userId: number): Promise<boolean> {
     try {
-      // First check if user has access to this patient
-      const existingPatient = await this.getPatientByIdWithAccessCheck(id, userId);
-      if (!existingPatient) {
-        return false;
-      }
-
-      // Then delete the patient
-      await this.deletePatient(id);
-      return true;
+      const result = await pool.query(
+        `
+        DELETE FROM patients 
+        WHERE id = $1
+        AND EXISTS (
+          SELECT 1 FROM users u
+          WHERE u.id = $2
+          AND (
+            patients.site_id = u.primarysite_id
+            OR patients.site_id = ANY(u.assignedsites_ids)
+          )
+        )
+      `,
+        [id, userId]
+      );
+      
+      return result.rowCount > 0;
     } catch (error) {
       throw new Error(`Failed to delete patient with access check: ${error.message}`);
     }
@@ -167,7 +193,13 @@ export class PatientsService {
   async getPatientsBySiteName(siteName: string): Promise<Patient[]> {
     try {
       const result = await pool.query(
-        'SELECT * FROM patients WHERE site_name = $1 ORDER BY created_at DESC',
+        `
+        SELECT p.*, s.name as site_name
+        FROM patients p
+        LEFT JOIN sites s ON p.site_id = s.id
+        WHERE s.name = $1
+        ORDER BY p.created_at DESC
+      `,
         [siteName]
       );
       return result.rows;
