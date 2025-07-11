@@ -104,25 +104,14 @@ export class UsersService {
   async getUsers(): Promise<any[]> {
     try {
       const result = await pool.query(`
-        WITH assigned_sites_agg AS (
-          SELECT 
-            u.id as user_id,
-            ARRAY_AGG(s_assigned.name) FILTER (WHERE s_assigned.name IS NOT NULL) as assigned_sites_names
-          FROM users u
-          LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
-          LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
-          GROUP BY u.id
-        )
         SELECT 
           u.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
           u.email,
           u.role,
-          s_primary.name as primary_site,
-          COALESCE(asa.assigned_sites_names, ARRAY[]::text[]) as assigned_sites
+          u.primarysite_id,
+          u.assignedsites_ids
         FROM users u
-        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
-        LEFT JOIN assigned_sites_agg asa ON asa.user_id = u.id
         ORDER BY u.last_name, u.first_name
       `);
 
@@ -136,26 +125,14 @@ export class UsersService {
     try {
       const result = await pool.query(
         `
-        WITH assigned_sites_agg AS (
-          SELECT 
-            u.id as user_id,
-            ARRAY_AGG(s_assigned.name) FILTER (WHERE s_assigned.name IS NOT NULL) as assigned_sites_names
-          FROM users u
-          LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
-          LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
-          WHERE u.id = $1
-          GROUP BY u.id
-        )
         SELECT 
           u.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
           u.email,
           u.role,
-          s_primary.name as primary_site,
-          COALESCE(asa.assigned_sites_names, ARRAY[]::text[]) as assigned_sites
+          u.primarysite_id,
+          u.assignedsites_ids
         FROM users u
-        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
-        LEFT JOIN assigned_sites_agg asa ON asa.user_id = u.id
         WHERE u.id = $1
       `,
         [id],
@@ -173,14 +150,6 @@ export class UsersService {
 
   async updateUser(id: number, user: Partial<User>): Promise<User> {
     try {
-      const currentUser = await pool.query(
-        "SELECT * FROM users WHERE id = $1",
-        [id],
-      );
-      if (currentUser.rows.length === 0) {
-        throw new NotFoundException("User not found");
-      }
-
       if (user.email) {
         user.email = user.email.toLowerCase();
       }
@@ -195,6 +164,10 @@ export class UsersService {
       const fields = Object.keys(user).filter((key) => user[key] !== undefined);
       const values = fields.map((field) => user[field]);
 
+      if (fields.length === 0) {
+        throw new BadRequestException("No fields to update");
+      }
+
       const setString = fields
         .map((field, index) => `${field} = $${index + 1}`)
         .join(", ");
@@ -206,9 +179,11 @@ export class UsersService {
       RETURNING *
     `;
       const result = await pool.query(query, [...values, id]);
+      
       if (result.rows.length === 0) {
-        throw new BadRequestException("Failed to update user");
+        throw new NotFoundException("User not found");
       }
+      
       return result.rows[0];
     } catch (error) {
       if (error.code === "23505") {
@@ -224,25 +199,14 @@ export class UsersService {
     try {
       const result = await pool.query(
         `
-        WITH assigned_sites_agg AS (
-          SELECT 
-            u.id as user_id,
-            ARRAY_AGG(s_assigned.name) FILTER (WHERE s_assigned.name IS NOT NULL) as assigned_sites_names
-          FROM users u
-          LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
-          LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
-          GROUP BY u.id
-        )
         SELECT 
           u.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
           u.email,
           u.role,
-          s_primary.name as primary_site,
-          COALESCE(asa.assigned_sites_names, ARRAY[]::text[]) as assigned_sites
+          u.primarysite_id,
+          u.assignedsites_ids
         FROM users u
-        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
-        LEFT JOIN assigned_sites_agg asa ON asa.user_id = u.id
         WHERE u.primarysite_id = $1 OR $1 = ANY(u.assignedsites_ids)
         ORDER BY u.last_name, u.first_name
       `,
