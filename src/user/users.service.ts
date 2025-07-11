@@ -110,8 +110,17 @@ export class UsersService {
           u.email,
           u.role,
           u.primarysite_id,
-          u.assignedsites_ids
+          u.assignedsites_ids,
+          s_primary.name as primary_site,
+          COALESCE(
+            ARRAY_AGG(s_assigned.name) FILTER (WHERE s_assigned.name IS NOT NULL),
+            ARRAY[]::text[]
+          ) as assigned_sites
         FROM users u
+        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
+        LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
+        LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
+        GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.primarysite_id, u.assignedsites_ids, s_primary.name
         ORDER BY u.last_name, u.first_name
       `);
 
@@ -131,9 +140,18 @@ export class UsersService {
           u.email,
           u.role,
           u.primarysite_id,
-          u.assignedsites_ids
+          u.assignedsites_ids,
+          s_primary.name as primary_site,
+          COALESCE(
+            ARRAY_AGG(s_assigned.name) FILTER (WHERE s_assigned.name IS NOT NULL),
+            ARRAY[]::text[]
+          ) as assigned_sites
         FROM users u
+        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
+        LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
+        LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
         WHERE u.id = $1
+        GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.primarysite_id, u.assignedsites_ids, s_primary.name
       `,
         [id],
       );
@@ -205,9 +223,18 @@ export class UsersService {
           u.email,
           u.role,
           u.primarysite_id,
-          u.assignedsites_ids
+          u.assignedsites_ids,
+          s_primary.name as primary_site,
+          COALESCE(
+            ARRAY_AGG(s_assigned.name) FILTER (WHERE s_assigned.name IS NOT NULL),
+            ARRAY[]::text[]
+          ) as assigned_sites
         FROM users u
+        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
+        LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
+        LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
         WHERE u.primarysite_id = $1 OR $1 = ANY(u.assignedsites_ids)
+        GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.primarysite_id, u.assignedsites_ids, s_primary.name
         ORDER BY u.last_name, u.first_name
       `,
         [siteId],
