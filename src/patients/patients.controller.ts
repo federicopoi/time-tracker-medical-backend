@@ -10,6 +10,7 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  Query,
 } from "@nestjs/common";
 import { PatientsService } from "./patients.service";
 import { CreatePatientDto } from "./dto/create-patient.dto";
@@ -36,18 +37,23 @@ export class PatientsController {
   }
 
   @Get()
-  async getPatients(@Request() req) {
+  async getPatients(@Request() req, @Query('page') page?: string, @Query('limit') limit?: string) {
     try {
       const userId = parseInt(req.user.sub);
       const userRole = req.user.role;
 
-      // If user is admin, get all patients
+      // Parse pagination parameters
+      const pageNum = page ? parseInt(page) : 1;
+      const limitNum = limit ? parseInt(limit) : 50; // Default to 50 items per page
+      const offset = (pageNum - 1) * limitNum;
+
+      // If user is admin, get all patients with pagination
       if (userRole === "admin") {
-        return await this.patientsService.getPatients();
+        return await this.patientsService.getPatients(limitNum, offset);
       }
 
-      // For non-admin users, get only patients from their assigned sites
-      return await this.patientsService.getPatientsByUserAccess(userId);
+      // For non-admin users, get only patients from their assigned sites with pagination
+      return await this.patientsService.getPatientsByUserAccess(userId, limitNum, offset);
     } catch (error) {
       throw new HttpException(
         "Failed to fetch patients",

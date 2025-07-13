@@ -36,15 +36,51 @@ export class PatientsService {
     }
   }
 
-  async getPatients(): Promise<Patient[]> {
-    const result = await pool.query('SELECT * FROM patients ORDER BY created_at DESC');
-    return result.rows;
+  async getPatients(limit?: number, offset?: number): Promise<{ patients: Patient[], total: number }> {
+    try {
+      // Get total count
+      const countResult = await pool.query('SELECT COUNT(*) FROM patients');
+      const total = parseInt(countResult.rows[0].count);
+      
+      // Get paginated results
+      let query = 'SELECT * FROM patients ORDER BY created_at DESC';
+      const params: any[] = [];
+      
+      if (limit !== undefined && offset !== undefined) {
+        query += ' LIMIT $1 OFFSET $2';
+        params.push(limit, offset);
+      }
+      
+      const result = await pool.query(query, params);
+      return { patients: result.rows, total };
+    } catch (error) {
+      throw new Error(`Failed to fetch patients: ${error.message}`);
+    }
   }
 
-  async getPatientsByUserAccess(userId: number): Promise<Patient[]> {
+  async getPatientsByUserAccess(userId: number, limit?: number, offset?: number): Promise<{ patients: Patient[], total: number }> {
     try {
-      const result = await pool.query(
+      // Get total count
+      const countResult = await pool.query(
         `
+        SELECT COUNT(*) 
+        FROM patients p
+        LEFT JOIN sites s ON p.site_id = s.id
+        WHERE EXISTS (
+          SELECT 1 FROM users u
+          WHERE u.id = $1
+          AND (
+            p.site_id = u.primarysite_id
+            OR p.site_id = ANY(u.assignedsites_ids)
+          )
+        )
+      `,
+        [userId]
+      );
+      const total = parseInt(countResult.rows[0].count);
+      
+      // Get paginated results
+      let query = `
         SELECT p.*, s.name as site_name
         FROM patients p
         LEFT JOIN sites s ON p.site_id = s.id
@@ -57,11 +93,17 @@ export class PatientsService {
           )
         )
         ORDER BY p.created_at DESC
-      `,
-        [userId]
-      );
+      `;
       
-      return result.rows;
+      const params: any[] = [userId];
+      
+      if (limit !== undefined && offset !== undefined) {
+        query += ' LIMIT $2 OFFSET $3';
+        params.push(limit, offset);
+      }
+      
+      const result = await pool.query(query, params);
+      return { patients: result.rows, total };
     } catch (error) {
       throw new Error(`Failed to fetch patients for user access: ${error.message}`);
     }
