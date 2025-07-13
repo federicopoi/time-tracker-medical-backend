@@ -141,6 +141,27 @@ export class ActivitiesController {
     }
   }
 
+  @Post("batch")
+  async getActivitiesBatch(@Body() body: { patientIds: number[] }, @Request() req) {
+    try {
+      const userId = parseInt(req.user.sub);
+      const userRole = req.user.role;
+      const { patientIds } = body;
+      if (!Array.isArray(patientIds) || patientIds.length === 0) {
+        throw new HttpException("No patientIds provided", HttpStatus.BAD_REQUEST);
+      }
+      if (userRole === "admin") {
+        return await this.activitiesService.getActivitiesByPatientIds(patientIds);
+      }
+      return await this.activitiesService.getActivitiesByPatientIdsWithAccessCheck(patientIds, userId);
+    } catch (error) {
+      throw new HttpException(
+        `Failed to fetch activities for patients: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   @Put(":id")
   async updateActivity(
     @Param("id") id: string,

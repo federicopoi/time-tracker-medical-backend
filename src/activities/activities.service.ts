@@ -268,6 +268,78 @@ export class ActivitiesService {
     }
   }
 
+  async getActivitiesByPatientIds(patientIds: number[]): Promise<{ [patientId: number]: Activity[] }> {
+    // Use a single query to fetch all activities for the given patient IDs
+    const result = await pool.query(
+      `
+      SELECT 
+        a.*, 
+        s.name as site_name, 
+        p.building, 
+        CONCAT(p.first_name, ' ', p.last_name) as patient_name, 
+        CONCAT(UPPER(LEFT(u.first_name, 1)), UPPER(LEFT(u.last_name, 1))) as user_initials
+      FROM activities a
+      LEFT JOIN patients p ON a.patient_id = p.id
+      LEFT JOIN users u ON a.user_id = u.id
+      LEFT JOIN sites s ON a.site_id = s.id
+      WHERE a.patient_id = ANY($1)
+      ORDER BY a.created_at DESC
+      `,
+      [patientIds]
+    );
+    // Group by patientId
+    const grouped: { [patientId: number]: Activity[] } = {};
+    for (const row of result.rows) {
+      if (!grouped[row.patient_id]) grouped[row.patient_id] = [];
+      grouped[row.patient_id].push(row);
+    }
+    // Ensure all requested patientIds are present (even if empty)
+    for (const id of patientIds) {
+      if (!grouped[id]) grouped[id] = [];
+    }
+    return grouped;
+  }
+
+  async getActivitiesByPatientIdsWithAccessCheck(patientIds: number[], userId: number): Promise<{ [patientId: number]: Activity[] }> {
+    // Use a single query to fetch all activities for the given patient IDs, with access check
+    const result = await pool.query(
+      `
+      SELECT 
+        a.*, 
+        s.name as site_name, 
+        p.building, 
+        CONCAT(p.first_name, ' ', p.last_name) as patient_name, 
+        CONCAT(UPPER(LEFT(u.first_name, 1)), UPPER(LEFT(u.last_name, 1))) as user_initials
+      FROM activities a
+      LEFT JOIN patients p ON a.patient_id = p.id
+      LEFT JOIN users u ON a.user_id = u.id
+      LEFT JOIN sites s ON a.site_id = s.id
+      WHERE a.patient_id = ANY($1)
+      AND EXISTS (
+        SELECT 1 FROM users current_user
+        WHERE current_user.id = $2
+        AND (
+          a.site_id = current_user.primarysite_id
+          OR a.site_id = ANY(current_user.assignedsites_ids)
+        )
+      )
+      ORDER BY a.created_at DESC
+      `,
+      [patientIds, userId]
+    );
+    // Group by patientId
+    const grouped: { [patientId: number]: Activity[] } = {};
+    for (const row of result.rows) {
+      if (!grouped[row.patient_id]) grouped[row.patient_id] = [];
+      grouped[row.patient_id].push(row);
+    }
+    // Ensure all requested patientIds are present (even if empty)
+    for (const id of patientIds) {
+      if (!grouped[id]) grouped[id] = [];
+    }
+    return grouped;
+  }
+
   async deleteActivity(id: number): Promise<void> {
     await pool.query("DELETE FROM activities WHERE id = $1", [id]);
   }
