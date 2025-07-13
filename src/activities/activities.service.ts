@@ -14,12 +14,23 @@ export class ActivitiesService {
         site_name = 'CP Greater San Antonio'; // Default site name
       }
       
+      // Look up site_id from site_name for databases that require site_id
+      let site_id = 1; // Default site_id
+      try {
+        const siteResult = await pool.query('SELECT id FROM sites WHERE name = $1', [site_name]);
+        if (siteResult.rows.length > 0) {
+          site_id = siteResult.rows[0].id;
+        }
+      } catch (err) {
+        console.log('Could not lookup site_id, using default:', err.message);
+      }
+      
       const result = await pool.query(
         `INSERT INTO activities (
           patient_id, user_id, activity_type, pharm_flag, notes, 
-          site_name, building, service_datetime, service_endtime, duration_minutes
+          site_name, site_id, building, service_datetime, service_endtime, duration_minutes
         ) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *`,
         [
           activity.patient_id, // $1
@@ -28,12 +39,13 @@ export class ActivitiesService {
           activity.pharm_flag || false, // $4
           activity.notes || "", // $5
           site_name, // $6
-          activity.building || "", // $7
-          activity.service_datetime || new Date().toISOString(), // $8
+          site_id, // $7
+          activity.building || "", // $8
+          activity.service_datetime || new Date().toISOString(), // $9
           (activity as any).end_time ||
             activity.service_endtime ||
-            new Date().toISOString(), // $9
-          activity.duration_minutes, // $10
+            new Date().toISOString(), // $10
+          activity.duration_minutes, // $11
         ],
       );
 
