@@ -6,7 +6,8 @@ export interface Activity {
   pharm_flag?: boolean;
   notes?: string;
   building?: string;
-  site_name: string;
+  site_id?: number;  // Changed from site_name to site_id
+  site_name?: string; // Keep for compatibility
   service_datetime: Date;
   service_endtime: Date;
   end_time?: Date; // Alias for service_endtime to match frontend

@@ -8,7 +8,8 @@ export interface Patient {
   contact_name?: string;
   contact_phone_number?: string;
   insurance?: string;
-  site_name: string;
+  site_id?: number;  // Changed from site_name to site_id
+  site_name?: string; // Keep for compatibility
   building?: string;
   is_active: boolean;
   created_at?: Date;

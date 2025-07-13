@@ -9,10 +9,19 @@ export class PatientsService {
       // Convert birthdate string to Date if needed
       const birthdate = typeof patient.birthdate === 'string' ? new Date(patient.birthdate) : patient.birthdate;
       
+      // Look up site_id from site_name if provided
+      let site_id = null;
+      if (patient.site_name) {
+        const siteResult = await pool.query('SELECT id FROM sites WHERE name = $1', [patient.site_name]);
+        if (siteResult.rows.length > 0) {
+          site_id = siteResult.rows[0].id;
+        }
+      }
+      
       const result = await pool.query(
         `INSERT INTO patients (
           first_name, last_name, birthdate, gender, phone_number,
-          contact_name, contact_phone_number, insurance, is_active, site_name, building,
+          contact_name, contact_phone_number, insurance, is_active, site_id, building,
           notes
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
         [
@@ -25,7 +34,7 @@ export class PatientsService {
           patient.contact_phone_number,
           patient.insurance,
           patient.is_active,
-          patient.site_name,
+          site_id,
           patient.building,
           patient.notes
         ]

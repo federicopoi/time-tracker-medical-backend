@@ -6,23 +6,29 @@ import { Activity } from "./activites.interface";
 export class ActivitiesService {
   async createActivity(activity: Activity): Promise<Activity> {
     try {
+      // Look up site_id from site_name if provided
+      let site_id = null;
+      if (activity.site_name) {
+        const siteResult = await pool.query('SELECT id FROM sites WHERE name = $1', [activity.site_name]);
+        if (siteResult.rows.length > 0) {
+          site_id = siteResult.rows[0].id;
+        }
+      }
+      
+      // If no site_id from activity, try to get it from the patient
+      if (!site_id) {
+        const patientResult = await pool.query('SELECT site_id FROM patients WHERE id = $1', [activity.patient_id]);
+        if (patientResult.rows.length > 0) {
+          site_id = patientResult.rows[0].site_id;
+        }
+      }
+      
       const result = await pool.query(
         `INSERT INTO activities (
           patient_id, user_id, activity_type, pharm_flag, notes, 
-          site_name, building, service_datetime, service_endtime, duration_minutes
+          site_id, building, service_datetime, service_endtime, duration_minutes
         ) 
-        VALUES (
-          $1, 
-          $2, 
-          $3, 
-          $4, 
-          $5, 
-          COALESCE((SELECT site_name FROM patients WHERE id = $1), $6),
-          COALESCE((SELECT building FROM patients WHERE id = $1), $7), 
-          $8, 
-          $9,
-          $10
-        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *`,
         [
           activity.patient_id, // $1
@@ -30,8 +36,8 @@ export class ActivitiesService {
           activity.activity_type, // $3
           activity.pharm_flag || false, // $4
           activity.notes || "", // $5
-          activity.site_name || "", // $6 (fallback site_name)
-          activity.building || "", // $7 (fallback building)
+          site_id, // $6
+          activity.building || "", // $7
           activity.service_datetime || new Date().toISOString(), // $8
           (activity as any).end_time ||
             activity.service_endtime ||
