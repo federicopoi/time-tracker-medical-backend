@@ -18,10 +18,19 @@ export class PatientsService {
         }
       }
       
+      // Look up building_id from building name if provided
+      let building_id = null;
+      if (patient.building) {
+        const buildingResult = await pool.query('SELECT id FROM buildings WHERE name = $1', [patient.building]);
+        if (buildingResult.rows.length > 0) {
+          building_id = buildingResult.rows[0].id;
+        }
+      }
+      
       const result = await pool.query(
         `INSERT INTO patients (
           first_name, last_name, birthdate, gender, phone_number,
-          contact_name, contact_phone_number, insurance, is_active, site_id, building,
+          contact_name, contact_phone_number, insurance, is_active, site_id, building_id,
           notes
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
         [
@@ -35,7 +44,7 @@ export class PatientsService {
           patient.insurance,
           patient.is_active,
           site_id,
-          patient.building,
+          building_id,
           patient.notes
         ]
       );
@@ -64,10 +73,10 @@ export class PatientsService {
       // Search functionality - search in first_name, last_name, and id
       if (search && search.trim()) {
         whereConditions.push(`(
-          LOWER(first_name) LIKE LOWER($${paramIndex}) OR 
-          LOWER(last_name) LIKE LOWER($${paramIndex}) OR
-          LOWER(CONCAT(first_name, ' ', last_name)) LIKE LOWER($${paramIndex}) OR
-          CAST(id AS TEXT) LIKE $${paramIndex}
+          LOWER(p.first_name) LIKE LOWER($${paramIndex}) OR 
+          LOWER(p.last_name) LIKE LOWER($${paramIndex}) OR
+          LOWER(CONCAT(p.first_name, ' ', p.last_name)) LIKE LOWER($${paramIndex}) OR
+          CAST(p.id AS TEXT) LIKE $${paramIndex}
         )`);
         params.push(`%${search.trim()}%`);
         paramIndex++;
@@ -75,14 +84,14 @@ export class PatientsService {
 
       // Site filter
       if (site && site.trim()) {
-        whereConditions.push(`site_name = $${paramIndex}`);
+        whereConditions.push(`s.name = $${paramIndex}`);
         params.push(site.trim());
         paramIndex++;
       }
 
       // Building filter
       if (building && building.trim()) {
-        whereConditions.push(`building = $${paramIndex}`);
+        whereConditions.push(`b.name = $${paramIndex}`);
         params.push(building.trim());
         paramIndex++;
       }
@@ -90,9 +99,9 @@ export class PatientsService {
       // Status filter
       if (status && status !== 'all') {
         if (status === 'active') {
-          whereConditions.push(`is_active = true`);
+          whereConditions.push(`p.is_active = true`);
         } else if (status === 'inactive') {
-          whereConditions.push(`is_active = false`);
+          whereConditions.push(`p.is_active = false`);
         }
       }
 
@@ -100,24 +109,30 @@ export class PatientsService {
       const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
       // Get total count with filters
-      const countQuery = `SELECT COUNT(*) FROM patients ${whereClause}`;
+      const countQuery = `
+        SELECT COUNT(*) 
+        FROM patients p
+        LEFT JOIN sites s ON p.site_id = s.id
+        LEFT JOIN buildings b ON p.building_id = b.id
+        ${whereClause}
+      `;
       const countResult = await pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].count);
 
       // Build ORDER BY clause
-      let orderByClause = 'ORDER BY created_at DESC'; // Default sorting
+      let orderByClause = 'ORDER BY p.created_at DESC'; // Default sorting
       
       if (sortField && sortDirection) {
         const validSortFields = {
-          'name': 'first_name', // Map 'name' to 'first_name' for sorting
-          'first_name': 'first_name',
-          'last_name': 'last_name',
-          'birthdate': 'birthdate',
-          'gender': 'gender',
-          'site_name': 'site_name',
-          'building': 'building',
-          'is_active': 'is_active',
-          'created_at': 'created_at'
+          'name': 'p.first_name', // Map 'name' to 'first_name' for sorting
+          'first_name': 'p.first_name',
+          'last_name': 'p.last_name',
+          'birthdate': 'p.birthdate',
+          'gender': 'p.gender',
+          'site_name': 's.name',
+          'building': 'b.name',
+          'is_active': 'p.is_active',
+          'created_at': 'p.created_at'
         };
 
         const actualSortField = validSortFields[sortField];
@@ -128,7 +143,14 @@ export class PatientsService {
       }
 
       // Build main query
-      let query = `SELECT * FROM patients ${whereClause} ${orderByClause}`;
+      let query = `
+        SELECT p.*, s.name as site_name, b.name as building
+        FROM patients p
+        LEFT JOIN sites s ON p.site_id = s.id
+        LEFT JOIN buildings b ON p.building_id = b.id
+        ${whereClause} 
+        ${orderByClause}
+      `;
       
       // Add pagination
       if (limit !== undefined && offset !== undefined) {
@@ -193,7 +215,7 @@ export class PatientsService {
 
       // Building filter
       if (building && building.trim()) {
-        whereConditions.push(`p.building = $${paramIndex}`);
+        whereConditions.push(`b.name = $${paramIndex}`);
         params.push(building.trim());
         paramIndex++;
       }
@@ -215,6 +237,7 @@ export class PatientsService {
         SELECT COUNT(*) 
         FROM patients p
         LEFT JOIN sites s ON p.site_id = s.id
+        LEFT JOIN buildings b ON p.building_id = b.id
         ${whereClause}
       `;
       const countResult = await pool.query(countQuery, params);
