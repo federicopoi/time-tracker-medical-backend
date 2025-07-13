@@ -9,6 +9,7 @@ import {
   HttpException,
   HttpStatus,
   UseGuards,
+  Query,
 } from "@nestjs/common";
 import { UsersService, User } from "./users.service";
 import { RolesGuard } from "src/auth/roles.guard";
@@ -34,9 +35,38 @@ export class UsersController {
   }
 
   @Get()
-  async getUsers() {
+  async getUsers(
+    @Query('page') page?: string, 
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('role') role?: string,
+    @Query('site') site?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDirection') sortDirection?: 'asc' | 'desc'
+  ) {
     try {
-      return await this.usersService.getUsers();
+      // Parse pagination parameters
+      const pageNum = page ? parseInt(page) : 1;
+      const limitNum = limit ? parseInt(limit) : 50;
+      const offset = (pageNum - 1) * limitNum;
+
+      const result = await this.usersService.getUsers(
+        limitNum, 
+        offset,
+        search,
+        role,
+        site,
+        sortField,
+        sortDirection
+      );
+      
+      return {
+        users: result.users,
+        total: result.total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(result.total / limitNum)
+      };
     } catch (error) {
       throw new HttpException(
         "Failed to fetch users",

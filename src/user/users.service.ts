@@ -101,9 +101,86 @@ export class UsersService {
     }
   }
 
-  async getUsers(): Promise<any[]> {
+  async getUsers(
+    limit?: number, 
+    offset?: number,
+    search?: string,
+    role?: string,
+    site?: string,
+    sortField?: string,
+    sortDirection?: 'asc' | 'desc'
+  ): Promise<{ users: any[], total: number }> {
     try {
-      const result = await pool.query(`
+      // Build WHERE conditions
+      const whereConditions: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      // Search functionality - search in name and email
+      if (search && search.trim()) {
+        whereConditions.push(`(
+          LOWER(CONCAT(u.first_name, ' ', u.last_name)) LIKE LOWER($${paramIndex}) OR 
+          LOWER(u.email) LIKE LOWER($${paramIndex}) OR
+          CAST(u.id AS TEXT) LIKE $${paramIndex}
+        )`);
+        params.push(`%${search.trim()}%`);
+        paramIndex++;
+      }
+
+      // Role filter
+      if (role && role !== 'all') {
+        whereConditions.push(`u.role = $${paramIndex}`);
+        params.push(role);
+        paramIndex++;
+      }
+
+      // Site filter
+      if (site && site !== 'all') {
+        whereConditions.push(`(s_primary.name = $${paramIndex} OR $${paramIndex} = ANY(
+          SELECT s_assigned.name 
+          FROM unnest(u.assignedsites_ids) AS assigned_site_id
+          JOIN sites s_assigned ON s_assigned.id = assigned_site_id
+        ))`);
+        params.push(site);
+        paramIndex++;
+      }
+
+      // Build WHERE clause
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      // Get total count with filters
+      const countQuery = `
+        SELECT COUNT(DISTINCT u.id) 
+        FROM users u
+        LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
+        LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
+        LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
+        ${whereClause}
+      `;
+      const countResult = await pool.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].count);
+
+      // Build ORDER BY clause
+      let orderByClause = 'ORDER BY u.last_name, u.first_name'; // Default sorting
+      
+      if (sortField && sortDirection) {
+        const validSortFields = {
+          'name': 'CONCAT(u.first_name, \' \', u.last_name)',
+          'email': 'u.email',
+          'role': 'u.role',
+          'primarysite': 's_primary.name',
+          'created_at': 'u.created_at'
+        };
+
+        const actualSortField = validSortFields[sortField];
+        if (actualSortField) {
+          const direction = sortDirection.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+          orderByClause = `ORDER BY ${actualSortField} ${direction}`;
+        }
+      }
+
+      // Build main query
+      let query = `
         SELECT 
           u.id,
           CONCAT(u.first_name, ' ', u.last_name) as name,
@@ -120,11 +197,19 @@ export class UsersService {
         LEFT JOIN sites s_primary ON s_primary.id = u.primarysite_id
         LEFT JOIN LATERAL unnest(u.assignedsites_ids) AS assigned_site_id ON true
         LEFT JOIN sites s_assigned ON s_assigned.id = assigned_site_id
+        ${whereClause}
         GROUP BY u.id, u.first_name, u.last_name, u.email, u.role, u.primarysite_id, u.assignedsites_ids, s_primary.name
-        ORDER BY u.last_name, u.first_name
-      `);
+        ${orderByClause}
+      `;
+      
+      // Add pagination
+      if (limit !== undefined && offset !== undefined) {
+        query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+        params.push(limit, offset);
+      }
 
-      return result.rows;
+      const result = await pool.query(query, params);
+      return { users: result.rows, total };
     } catch (error) {
       throw error;
     }
