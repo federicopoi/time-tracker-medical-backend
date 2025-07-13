@@ -9,30 +9,12 @@ export class PatientsService {
       // Convert birthdate string to Date if needed
       const birthdate = typeof patient.birthdate === 'string' ? new Date(patient.birthdate) : patient.birthdate;
       
-      // Look up site_id from site_name if provided
-      let site_id = null;
-      if (patient.site_name) {
-        const siteResult = await pool.query('SELECT id FROM sites WHERE name = $1', [patient.site_name]);
-        if (siteResult.rows.length > 0) {
-          site_id = siteResult.rows[0].id;
-        }
-      }
-      
-      // Look up building_id from building name if provided
-      let building_id = null;
-      if (patient.building) {
-        const buildingResult = await pool.query('SELECT id FROM buildings WHERE name = $1', [patient.building]);
-        if (buildingResult.rows.length > 0) {
-          building_id = buildingResult.rows[0].id;
-        }
-      }
-      
       const result = await pool.query(
         `INSERT INTO patients (
           first_name, last_name, birthdate, gender, phone_number,
-          contact_name, contact_phone_number, insurance, is_active, site_id, building_id,
+          contact_name, contact_phone_number, insurance, is_active,
           notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
         [
           patient.first_name,
           patient.last_name,
@@ -43,8 +25,6 @@ export class PatientsService {
           patient.contact_phone_number,
           patient.insurance,
           patient.is_active,
-          site_id,
-          building_id,
           patient.notes
         ]
       );
@@ -82,19 +62,19 @@ export class PatientsService {
         paramIndex++;
       }
 
-      // Site filter
-      if (site && site.trim()) {
-        whereConditions.push(`s.name = $${paramIndex}`);
-        params.push(site.trim());
-        paramIndex++;
-      }
+      // Site filter - Skip for now since we're not using site columns
+      // if (site && site.trim()) {
+      //   whereConditions.push(`s.name = $${paramIndex}`);
+      //   params.push(site.trim());
+      //   paramIndex++;
+      // }
 
-      // Building filter
-      if (building && building.trim()) {
-        whereConditions.push(`b.name = $${paramIndex}`);
-        params.push(building.trim());
-        paramIndex++;
-      }
+      // Building filter - Skip for now since we're not using building columns
+      // if (building && building.trim()) {
+      //   whereConditions.push(`b.name = $${paramIndex}`);
+      //   params.push(building.trim());
+      //   paramIndex++;
+      // }
 
       // Status filter
       if (status && status !== 'all') {
@@ -112,8 +92,6 @@ export class PatientsService {
       const countQuery = `
         SELECT COUNT(*) 
         FROM patients p
-        LEFT JOIN sites s ON p.site_id = s.id
-        LEFT JOIN buildings b ON p.building_id = b.id
         ${whereClause}
       `;
       const countResult = await pool.query(countQuery, params);
@@ -129,8 +107,6 @@ export class PatientsService {
           'last_name': 'p.last_name',
           'birthdate': 'p.birthdate',
           'gender': 'p.gender',
-          'site_name': 's.name',
-          'building': 'b.name',
           'is_active': 'p.is_active',
           'created_at': 'p.created_at'
         };
@@ -144,10 +120,8 @@ export class PatientsService {
 
       // Build main query
       let query = `
-        SELECT p.*, s.name as site_name, b.name as building
+        SELECT p.*
         FROM patients p
-        LEFT JOIN sites s ON p.site_id = s.id
-        LEFT JOIN buildings b ON p.building_id = b.id
         ${whereClause} 
         ${orderByClause}
       `;
@@ -206,19 +180,19 @@ export class PatientsService {
         paramIndex++;
       }
 
-      // Site filter
-      if (site && site.trim()) {
-        whereConditions.push(`s.name = $${paramIndex}`);
-        params.push(site.trim());
-        paramIndex++;
-      }
+      // Site filter - Skip for now since we're not using site columns
+      // if (site && site.trim()) {
+      //   whereConditions.push(`s.name = $${paramIndex}`);
+      //   params.push(site.trim());
+      //   paramIndex++;
+      // }
 
-      // Building filter
-      if (building && building.trim()) {
-        whereConditions.push(`b.name = $${paramIndex}`);
-        params.push(building.trim());
-        paramIndex++;
-      }
+      // Building filter - Skip for now since we're not using building columns
+      // if (building && building.trim()) {
+      //   whereConditions.push(`b.name = $${paramIndex}`);
+      //   params.push(building.trim());
+      //   paramIndex++;
+      // }
 
       // Status filter
       if (status && status !== 'all') {
@@ -236,8 +210,6 @@ export class PatientsService {
       const countQuery = `
         SELECT COUNT(*) 
         FROM patients p
-        LEFT JOIN sites s ON p.site_id = s.id
-        LEFT JOIN buildings b ON p.building_id = b.id
         ${whereClause}
       `;
       const countResult = await pool.query(countQuery, params);
