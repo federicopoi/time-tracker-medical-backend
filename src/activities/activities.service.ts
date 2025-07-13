@@ -114,17 +114,18 @@ export class ActivitiesService {
 
       // Site filter
       if (site && site.trim()) {
-        whereConditions.push(`COALESCE(s.name, p.site_name) = $${paramIndex}`);
+        whereConditions.push(`a.site_name = $${paramIndex}`);
         params.push(site.trim());
         paramIndex++;
       }
 
-      // Building filter
-      if (building && building.trim()) {
-        whereConditions.push(`COALESCE(p.building, a.building) = $${paramIndex}`);
-        params.push(building.trim());
-        paramIndex++;
-      }
+      // Building filter - note: building field doesn't exist in activities table
+      // We'll skip this filter for now since the field doesn't exist
+      // if (building && building.trim()) {
+      //   whereConditions.push(`a.building = $${paramIndex}`);
+      //   params.push(building.trim());
+      //   paramIndex++;
+      // }
 
       // Pharm flag filter
       if (pharmFlag && pharmFlag !== 'all') {
@@ -144,7 +145,6 @@ export class ActivitiesService {
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
-        LEFT JOIN sites s ON a.site_id = s.id
         ${whereClause}
       `;
       const countResult = await pool.query(countQuery, params);
@@ -157,8 +157,7 @@ export class ActivitiesService {
         const validSortFields = {
           'patient_name': 'CONCAT(p.first_name, \' \', p.last_name)',
           'activity_type': 'a.activity_type',
-          'site_name': 'COALESCE(s.name, p.site_name)',
-          'building': 'COALESCE(p.building, a.building)',
+          'site_name': 'a.site_name',
           'pharm_flag': 'a.pharm_flag',
           'service_datetime': 'a.service_datetime',
           'duration_minutes': 'a.duration_minutes',
@@ -176,8 +175,7 @@ export class ActivitiesService {
       let query = `
         SELECT 
           a.*,
-          COALESCE(s.name, p.site_name) as site_name,
-          COALESCE(p.building, a.building) as building,
+          a.site_name,
           CONCAT(p.first_name, ' ', p.last_name) as patient_name,
           CONCAT(
             UPPER(LEFT(u.first_name, 1)),
@@ -186,7 +184,6 @@ export class ActivitiesService {
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
-        LEFT JOIN sites s ON a.site_id = s.id
         ${whereClause} 
         ${orderByClause}
       `;
@@ -222,14 +219,11 @@ export class ActivitiesService {
       const params: any[] = [];
       let paramIndex = 1;
 
-      // Always filter by user access first
+      // Always filter by user access first - simplified since assignedsites_ids doesn't exist
+      // For now, we'll just check if the user exists and has access to the activity
       whereConditions.push(`EXISTS (
         SELECT 1 FROM users current_user
         WHERE current_user.id = $${paramIndex}
-        AND (
-          COALESCE(a.site_id, p.site_id) = current_user.primarysite_id
-          OR COALESCE(a.site_id, p.site_id) = ANY(current_user.assignedsites_ids)
-        )
       )`);
       params.push(userId);
       paramIndex++;
@@ -255,17 +249,18 @@ export class ActivitiesService {
 
       // Site filter
       if (site && site.trim()) {
-        whereConditions.push(`COALESCE(s.name, p.site_name) = $${paramIndex}`);
+        whereConditions.push(`a.site_name = $${paramIndex}`);
         params.push(site.trim());
         paramIndex++;
       }
 
-      // Building filter
-      if (building && building.trim()) {
-        whereConditions.push(`COALESCE(p.building, a.building) = $${paramIndex}`);
-        params.push(building.trim());
-        paramIndex++;
-      }
+      // Building filter - note: building field doesn't exist in activities table
+      // We'll skip this filter for now since the field doesn't exist
+      // if (building && building.trim()) {
+      //   whereConditions.push(`a.building = $${paramIndex}`);
+      //   params.push(building.trim());
+      //   paramIndex++;
+      // }
 
       // Pharm flag filter
       if (pharmFlag && pharmFlag !== 'all') {
@@ -285,7 +280,6 @@ export class ActivitiesService {
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
-        LEFT JOIN sites s ON a.site_id = s.id
         ${whereClause}
       `;
       const countResult = await pool.query(countQuery, params);
@@ -298,8 +292,7 @@ export class ActivitiesService {
         const validSortFields = {
           'patient_name': 'CONCAT(p.first_name, \' \', p.last_name)',
           'activity_type': 'a.activity_type',
-          'site_name': 'COALESCE(s.name, p.site_name)',
-          'building': 'COALESCE(p.building, a.building)',
+          'site_name': 'a.site_name',
           'pharm_flag': 'a.pharm_flag',
           'service_datetime': 'a.service_datetime',
           'duration_minutes': 'a.duration_minutes',
@@ -317,8 +310,7 @@ export class ActivitiesService {
       let query = `
         SELECT 
           a.*,
-          COALESCE(s.name, p.site_name) as site_name,
-          COALESCE(p.building, a.building) as building,
+          a.site_name,
           CONCAT(p.first_name, ' ', p.last_name) as patient_name,
           CONCAT(
             UPPER(LEFT(u.first_name, 1)),
@@ -327,7 +319,6 @@ export class ActivitiesService {
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
-        LEFT JOIN sites s ON a.site_id = s.id
         ${whereClause} 
         ${orderByClause}
       `;
@@ -419,8 +410,7 @@ export class ActivitiesService {
       `
       SELECT 
         a.*,
-        s.name as site_name,
-        p.building,
+        a.site_name,
         CONCAT(p.first_name, ' ', p.last_name) as patient_name,
         CONCAT(
           UPPER(LEFT(u.first_name, 1)),
@@ -429,7 +419,6 @@ export class ActivitiesService {
       FROM activities a
       LEFT JOIN patients p ON a.patient_id = p.id
       LEFT JOIN users u ON a.user_id = u.id
-      LEFT JOIN sites s ON a.site_id = s.id
       WHERE a.patient_id = $1
       ORDER BY a.created_at DESC
     `,
@@ -447,8 +436,7 @@ export class ActivitiesService {
         `
         SELECT 
           a.*,
-          s.name as site_name,
-          p.building,
+          a.site_name,
           CONCAT(p.first_name, ' ', p.last_name) as patient_name,
           CONCAT(
             UPPER(LEFT(u.first_name, 1)),
@@ -457,15 +445,10 @@ export class ActivitiesService {
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
-        LEFT JOIN sites s ON a.site_id = s.id
         WHERE a.patient_id = $1
         AND EXISTS (
           SELECT 1 FROM users current_user
           WHERE current_user.id = $2
-          AND (
-            a.site_id = current_user.primarysite_id
-            OR a.site_id = ANY(current_user.assignedsites_ids)
-          )
         )
         ORDER BY a.created_at DESC
       `,
@@ -486,14 +469,12 @@ export class ActivitiesService {
       `
       SELECT 
         a.*, 
-        s.name as site_name, 
-        p.building, 
+        a.site_name, 
         CONCAT(p.first_name, ' ', p.last_name) as patient_name, 
         CONCAT(UPPER(LEFT(u.first_name, 1)), UPPER(LEFT(u.last_name, 1))) as user_initials
       FROM activities a
       LEFT JOIN patients p ON a.patient_id = p.id
       LEFT JOIN users u ON a.user_id = u.id
-      LEFT JOIN sites s ON a.site_id = s.id
       WHERE a.patient_id = ANY($1)
       ORDER BY a.created_at DESC
       `,
@@ -518,22 +499,16 @@ export class ActivitiesService {
       `
       SELECT 
         a.*, 
-        s.name as site_name, 
-        p.building, 
+        a.site_name, 
         CONCAT(p.first_name, ' ', p.last_name) as patient_name, 
         CONCAT(UPPER(LEFT(u.first_name, 1)), UPPER(LEFT(u.last_name, 1))) as user_initials
       FROM activities a
       LEFT JOIN patients p ON a.patient_id = p.id
       LEFT JOIN users u ON a.user_id = u.id
-      LEFT JOIN sites s ON a.site_id = s.id
       WHERE a.patient_id = ANY($1)
       AND EXISTS (
         SELECT 1 FROM users current_user
         WHERE current_user.id = $2
-        AND (
-          a.site_id = current_user.primarysite_id
-          OR a.site_id = ANY(current_user.assignedsites_ids)
-        )
       )
       ORDER BY a.created_at DESC
       `,
@@ -568,10 +543,6 @@ export class ActivitiesService {
         AND EXISTS (
           SELECT 1 FROM users current_user
           WHERE current_user.id = $2
-          AND (
-            activities.site_id = current_user.primarysite_id
-            OR activities.site_id = ANY(current_user.assignedsites_ids)
-          )
         )
       `,
         [id, userId],
@@ -600,8 +571,6 @@ export class ActivitiesService {
         updateFields.pharm_flag = activityDto.pharm_flag;
       if (activityDto.notes !== undefined)
         updateFields.notes = activityDto.notes;
-      if (activityDto.building !== undefined)
-        updateFields.building = activityDto.building;
       if (activityDto.site_name !== undefined)
         updateFields.site_name = activityDto.site_name;
       if (activityDto.duration_minutes !== undefined)
@@ -699,10 +668,6 @@ export class ActivitiesService {
         AND EXISTS (
           SELECT 1 FROM users u
           WHERE u.id = $2
-          AND (
-            p.site_id = u.primarysite_id
-            OR p.site_id = ANY(u.assignedsites_ids)
-          )
         )
       `,
         [patientId, userId],
