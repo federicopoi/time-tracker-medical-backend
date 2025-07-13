@@ -166,6 +166,29 @@ CREATE INDEX IF NOT EXISTS idx_sites_name_lookup ON sites(name);
 CREATE INDEX IF NOT EXISTS idx_patients_building ON patients(building);
 
 -- ============================================================================
+-- PATIENT SEARCH OPTIMIZATION INDEXES (High Priority for Performance)
+-- ============================================================================
+
+-- Text search indexes for patient names (GIN for full-text search)
+CREATE INDEX IF NOT EXISTS idx_patients_first_name_gin ON patients USING GIN(to_tsvector('english', first_name));
+CREATE INDEX IF NOT EXISTS idx_patients_last_name_gin ON patients USING GIN(to_tsvector('english', last_name));
+CREATE INDEX IF NOT EXISTS idx_patients_full_name_gin ON patients USING GIN(to_tsvector('english', first_name || ' ' || last_name));
+
+-- Fast prefix search for names (using trigram similarity)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS idx_patients_first_name_trgm ON patients USING GIN(first_name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_patients_last_name_trgm ON patients USING GIN(last_name gin_trgm_ops);
+
+-- Composite index for name-based sorting and filtering
+CREATE INDEX IF NOT EXISTS idx_patients_name_active ON patients(last_name, first_name, is_active);
+
+-- Index for patient ID searches (convert to text for LIKE operations)
+CREATE INDEX IF NOT EXISTS idx_patients_id_text ON patients((id::text));
+
+-- Composite index for common query patterns (pagination with sorting)
+CREATE INDEX IF NOT EXISTS idx_patients_active_created ON patients(is_active, created_at DESC) INCLUDE (first_name, last_name);
+
+-- ============================================================================
 -- SUMMARY
 -- ============================================================================
 -- Total indexes created: 42 (was 37, added 5 new indexes for patients service)
