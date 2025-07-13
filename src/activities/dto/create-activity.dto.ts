@@ -5,8 +5,7 @@ export class CreateActivityDto {
   pharm_flag?: boolean;
   notes?: string;
   building?: string;
-  site_id?: number;
-  site_name?: string; // Keep for compatibility
+  site_name: string; // Database uses site_name with NOT NULL constraint
   service_datetime: Date;
   service_endtime: Date;
   end_time?: Date; // Alias for service_endtime to match frontend

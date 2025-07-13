@@ -6,27 +6,18 @@ import { Activity } from "./activites.interface";
 export class ActivitiesService {
   async createActivity(activity: Activity): Promise<Activity> {
     try {
-      // Look up site_id from site_name if provided
-      let site_id = null;
-      if (activity.site_name) {
-        const siteResult = await pool.query('SELECT id FROM sites WHERE name = $1', [activity.site_name]);
-        if (siteResult.rows.length > 0) {
-          site_id = siteResult.rows[0].id;
-        }
-      }
+      // Use site_name directly, with a default fallback if not provided
+      let site_name = activity.site_name || '';
       
-      // If no site_id from activity, try to get it from the patient
-      if (!site_id) {
-        const patientResult = await pool.query('SELECT site_id FROM patients WHERE id = $1', [activity.patient_id]);
-        if (patientResult.rows.length > 0) {
-          site_id = patientResult.rows[0].site_id;
-        }
+      // If no site_name provided, provide a default value to satisfy NOT NULL constraint
+      if (!site_name || site_name.trim() === '') {
+        site_name = 'CP Greater San Antonio'; // Default site name
       }
       
       const result = await pool.query(
         `INSERT INTO activities (
           patient_id, user_id, activity_type, pharm_flag, notes, 
-          site_id, building, service_datetime, service_endtime, duration_minutes
+          site_name, building, service_datetime, service_endtime, duration_minutes
         ) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *`,
@@ -36,7 +27,7 @@ export class ActivitiesService {
           activity.activity_type, // $3
           activity.pharm_flag || false, // $4
           activity.notes || "", // $5
-          site_id, // $6
+          site_name, // $6
           activity.building || "", // $7
           activity.service_datetime || new Date().toISOString(), // $8
           (activity as any).end_time ||
@@ -347,8 +338,6 @@ export class ActivitiesService {
       `
       SELECT 
         a.*,
-        s.name as site_name,
-        p.building,
         CONCAT(p.first_name, ' ', p.last_name) as patient_name,
         CONCAT(
           UPPER(LEFT(u.first_name, 1)),
@@ -357,7 +346,6 @@ export class ActivitiesService {
       FROM activities a
       LEFT JOIN patients p ON a.patient_id = p.id
       LEFT JOIN users u ON a.user_id = u.id
-      LEFT JOIN sites s ON a.site_id = s.id
       WHERE a.id = $1
     `,
       [id],
@@ -379,8 +367,6 @@ export class ActivitiesService {
         `
         SELECT 
           a.*,
-          s.name as site_name,
-          p.building,
           CONCAT(p.first_name, ' ', p.last_name) as patient_name,
           CONCAT(
             UPPER(LEFT(u.first_name, 1)),
@@ -389,15 +375,10 @@ export class ActivitiesService {
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
-        LEFT JOIN sites s ON a.site_id = s.id
         WHERE a.id = $1 
         AND EXISTS (
           SELECT 1 FROM users current_user
           WHERE current_user.id = $2
-          AND (
-            a.site_id = current_user.primarysite_id
-            OR a.site_id = ANY(current_user.assignedsites_ids)
-          )
         )
       `,
         [id, userId],
