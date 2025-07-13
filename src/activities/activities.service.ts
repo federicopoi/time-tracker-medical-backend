@@ -76,33 +76,108 @@ export class ActivitiesService {
     }
   }
 
-  async getActivites(): Promise<Activity[]> {
-    const result = await pool.query(`
-        SELECT 
-          a.*,
-          p.site_name,
-          p.building,
-          CONCAT(p.first_name, ' ', p.last_name) as patient_name,
-          CONCAT(
-            UPPER(LEFT(u.first_name, 1)),
-            UPPER(LEFT(u.last_name, 1))
-          ) as user_initials
+  async getActivites(
+    limit?: number, 
+    offset?: number,
+    search?: string,
+    activityType?: string,
+    site?: string,
+    building?: string,
+    pharmFlag?: string,
+    sortField?: string,
+    sortDirection?: 'asc' | 'desc'
+  ): Promise<{ activities: Activity[], total: number }> {
+    try {
+      // Build WHERE conditions
+      const whereConditions: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      // Search functionality - search in patient name, activity type, notes, and activity id
+      if (search && search.trim()) {
+        whereConditions.push(`(
+          LOWER(CONCAT(p.first_name, ' ', p.last_name)) LIKE LOWER($${paramIndex}) OR 
+          LOWER(a.activity_type) LIKE LOWER($${paramIndex}) OR
+          LOWER(a.notes) LIKE LOWER($${paramIndex}) OR
+          CAST(a.id AS TEXT) LIKE $${paramIndex}
+        )`);
+        params.push(`%${search.trim()}%`);
+        paramIndex++;
+      }
+
+      // Activity type filter
+      if (activityType && activityType !== 'all') {
+        whereConditions.push(`a.activity_type = $${paramIndex}`);
+        params.push(activityType);
+        paramIndex++;
+      }
+
+      // Site filter
+      if (site && site.trim()) {
+        whereConditions.push(`COALESCE(s.name, p.site_name) = $${paramIndex}`);
+        params.push(site.trim());
+        paramIndex++;
+      }
+
+      // Building filter
+      if (building && building.trim()) {
+        whereConditions.push(`COALESCE(p.building, a.building) = $${paramIndex}`);
+        params.push(building.trim());
+        paramIndex++;
+      }
+
+      // Pharm flag filter
+      if (pharmFlag && pharmFlag !== 'all') {
+        if (pharmFlag === 'true') {
+          whereConditions.push(`a.pharm_flag = true`);
+        } else if (pharmFlag === 'false') {
+          whereConditions.push(`a.pharm_flag = false`);
+        }
+      }
+
+      // Build WHERE clause
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      // Get total count with filters
+      const countQuery = `
+        SELECT COUNT(*) 
         FROM activities a
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
-        ORDER BY a.created_at DESC
-      `);
-    return result.rows;
-  }
+        LEFT JOIN sites s ON a.site_id = s.id
+        ${whereClause}
+      `;
+      const countResult = await pool.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].count);
 
-  async getActivitiesByUserAccess(userId: number): Promise<Activity[]> {
-    try {
-      const result = await pool.query(
-        `
+      // Build ORDER BY clause
+      let orderByClause = 'ORDER BY a.created_at DESC'; // Default sorting
+      
+      if (sortField && sortDirection) {
+        const validSortFields = {
+          'patient_name': 'CONCAT(p.first_name, \' \', p.last_name)',
+          'activity_type': 'a.activity_type',
+          'site_name': 'COALESCE(s.name, p.site_name)',
+          'building': 'COALESCE(p.building, a.building)',
+          'pharm_flag': 'a.pharm_flag',
+          'service_datetime': 'a.service_datetime',
+          'duration_minutes': 'a.duration_minutes',
+          'created_at': 'a.created_at'
+        };
+
+        const actualSortField = validSortFields[sortField];
+        if (actualSortField) {
+          const direction = sortDirection.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+          orderByClause = `ORDER BY ${actualSortField} ${direction}`;
+        }
+      }
+
+      // Build main query
+      let query = `
         SELECT 
           a.*,
-          s.name as site_name,
-          p.building,
+          COALESCE(s.name, p.site_name) as site_name,
+          COALESCE(p.building, a.building) as building,
           CONCAT(p.first_name, ' ', p.last_name) as patient_name,
           CONCAT(
             UPPER(LEFT(u.first_name, 1)),
@@ -112,24 +187,161 @@ export class ActivitiesService {
         LEFT JOIN patients p ON a.patient_id = p.id
         LEFT JOIN users u ON a.user_id = u.id
         LEFT JOIN sites s ON a.site_id = s.id
-        WHERE EXISTS (
-          SELECT 1 FROM users current_user
-          WHERE current_user.id = $1
-          AND (
-            a.site_id = current_user.primarysite_id
-            OR a.site_id = ANY(current_user.assignedsites_ids)
-          )
-        )
-        ORDER BY a.created_at DESC
-      `,
-        [userId],
-      );
+        ${whereClause} 
+        ${orderByClause}
+      `;
+      
+      // Add pagination
+      if (limit !== undefined && offset !== undefined) {
+        query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+        params.push(limit, offset);
+      }
 
-      return result.rows;
+      const result = await pool.query(query, params);
+      return { activities: result.rows, total };
     } catch (error) {
-      throw new Error(
-        `Failed to fetch activities for user access: ${error.message}`,
-      );
+      throw new Error(`Failed to fetch activities: ${error.message}`);
+    }
+  }
+
+  async getActivitiesByUserAccess(
+    userId: number,
+    limit?: number, 
+    offset?: number,
+    search?: string,
+    activityType?: string,
+    site?: string,
+    building?: string,
+    pharmFlag?: string,
+    sortField?: string,
+    sortDirection?: 'asc' | 'desc'
+  ): Promise<{ activities: Activity[], total: number }> {
+    try {
+      // Build WHERE conditions
+      const whereConditions: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      // Always filter by user access first
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM users current_user
+        WHERE current_user.id = $${paramIndex}
+        AND (
+          COALESCE(a.site_id, p.site_id) = current_user.primarysite_id
+          OR COALESCE(a.site_id, p.site_id) = ANY(current_user.assignedsites_ids)
+        )
+      )`);
+      params.push(userId);
+      paramIndex++;
+
+      // Search functionality
+      if (search && search.trim()) {
+        whereConditions.push(`(
+          LOWER(CONCAT(p.first_name, ' ', p.last_name)) LIKE LOWER($${paramIndex}) OR 
+          LOWER(a.activity_type) LIKE LOWER($${paramIndex}) OR
+          LOWER(a.notes) LIKE LOWER($${paramIndex}) OR
+          CAST(a.id AS TEXT) LIKE $${paramIndex}
+        )`);
+        params.push(`%${search.trim()}%`);
+        paramIndex++;
+      }
+
+      // Activity type filter
+      if (activityType && activityType !== 'all') {
+        whereConditions.push(`a.activity_type = $${paramIndex}`);
+        params.push(activityType);
+        paramIndex++;
+      }
+
+      // Site filter
+      if (site && site.trim()) {
+        whereConditions.push(`COALESCE(s.name, p.site_name) = $${paramIndex}`);
+        params.push(site.trim());
+        paramIndex++;
+      }
+
+      // Building filter
+      if (building && building.trim()) {
+        whereConditions.push(`COALESCE(p.building, a.building) = $${paramIndex}`);
+        params.push(building.trim());
+        paramIndex++;
+      }
+
+      // Pharm flag filter
+      if (pharmFlag && pharmFlag !== 'all') {
+        if (pharmFlag === 'true') {
+          whereConditions.push(`a.pharm_flag = true`);
+        } else if (pharmFlag === 'false') {
+          whereConditions.push(`a.pharm_flag = false`);
+        }
+      }
+
+      // Build WHERE clause
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      // Get total count with filters
+      const countQuery = `
+        SELECT COUNT(*) 
+        FROM activities a
+        LEFT JOIN patients p ON a.patient_id = p.id
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN sites s ON a.site_id = s.id
+        ${whereClause}
+      `;
+      const countResult = await pool.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].count);
+
+      // Build ORDER BY clause
+      let orderByClause = 'ORDER BY a.created_at DESC'; // Default sorting
+      
+      if (sortField && sortDirection) {
+        const validSortFields = {
+          'patient_name': 'CONCAT(p.first_name, \' \', p.last_name)',
+          'activity_type': 'a.activity_type',
+          'site_name': 'COALESCE(s.name, p.site_name)',
+          'building': 'COALESCE(p.building, a.building)',
+          'pharm_flag': 'a.pharm_flag',
+          'service_datetime': 'a.service_datetime',
+          'duration_minutes': 'a.duration_minutes',
+          'created_at': 'a.created_at'
+        };
+
+        const actualSortField = validSortFields[sortField];
+        if (actualSortField) {
+          const direction = sortDirection.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+          orderByClause = `ORDER BY ${actualSortField} ${direction}`;
+        }
+      }
+
+      // Build main query
+      let query = `
+        SELECT 
+          a.*,
+          COALESCE(s.name, p.site_name) as site_name,
+          COALESCE(p.building, a.building) as building,
+          CONCAT(p.first_name, ' ', p.last_name) as patient_name,
+          CONCAT(
+            UPPER(LEFT(u.first_name, 1)),
+            UPPER(LEFT(u.last_name, 1))
+          ) as user_initials
+        FROM activities a
+        LEFT JOIN patients p ON a.patient_id = p.id
+        LEFT JOIN users u ON a.user_id = u.id
+        LEFT JOIN sites s ON a.site_id = s.id
+        ${whereClause} 
+        ${orderByClause}
+      `;
+      
+      // Add pagination
+      if (limit !== undefined && offset !== undefined) {
+        query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+        params.push(limit, offset);
+      }
+
+      const result = await pool.query(query, params);
+      return { activities: result.rows, total };
+    } catch (error) {
+      throw new Error(`Failed to fetch activities for user access: ${error.message}`);
     }
   }
 

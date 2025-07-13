@@ -10,6 +10,7 @@ import {
   HttpStatus,
   UseGuards,
   Request,
+  Query,
 } from "@nestjs/common";
 import { ActivitiesService } from "./activities.service";
 import { CreateActivityDto } from "./dto/create-activity.dto";
@@ -51,18 +52,71 @@ export class ActivitiesController {
   }
 
   @Get()
-  async getActivites(@Request() req) {
+  async getActivites(
+    @Request() req,
+    @Query('page') page?: string, 
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('activityType') activityType?: string,
+    @Query('site') site?: string,
+    @Query('building') building?: string,
+    @Query('pharmFlag') pharmFlag?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDirection') sortDirection?: 'asc' | 'desc'
+  ) {
     try {
       const userId = parseInt(req.user.sub);
       const userRole = req.user.role;
 
-      // If user is admin, get all activities
+      // Parse pagination parameters
+      const pageNum = page ? parseInt(page) : 1;
+      const limitNum = limit ? parseInt(limit) : 50;
+      const offset = (pageNum - 1) * limitNum;
+
+      // If user is admin, get all activities with filters
       if (userRole === "admin") {
-        return await this.activitiesService.getActivites();
+        const result = await this.activitiesService.getActivites(
+          limitNum, 
+          offset,
+          search,
+          activityType,
+          site,
+          building,
+          pharmFlag,
+          sortField,
+          sortDirection
+        );
+        
+        return {
+          activities: result.activities,
+          total: result.total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(result.total / limitNum)
+        };
       }
 
-      // For non-admin users, get only activities for patients they have access to
-      return await this.activitiesService.getActivitiesByUserAccess(userId);
+      // For non-admin users, get only activities for patients they have access to with filters
+      const result = await this.activitiesService.getActivitiesByUserAccess(
+        userId,
+        limitNum, 
+        offset,
+        search,
+        activityType,
+        site,
+        building,
+        pharmFlag,
+        sortField,
+        sortDirection
+      );
+      
+      return {
+        activities: result.activities,
+        total: result.total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(result.total / limitNum)
+      };
     } catch (error) {
       throw new HttpException(
         "Failed to fetch activities",
