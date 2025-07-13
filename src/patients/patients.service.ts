@@ -36,21 +36,97 @@ export class PatientsService {
     }
   }
 
-  async getPatients(limit?: number, offset?: number): Promise<{ patients: Patient[], total: number }> {
+  async getPatients(
+    limit?: number, 
+    offset?: number,
+    search?: string,
+    site?: string,
+    building?: string,
+    status?: string,
+    sortField?: string,
+    sortDirection?: 'asc' | 'desc'
+  ): Promise<{ patients: Patient[], total: number }> {
     try {
-      // Get total count
-      const countResult = await pool.query('SELECT COUNT(*) FROM patients');
-      const total = parseInt(countResult.rows[0].count);
-      
-      // Get paginated results
-      let query = 'SELECT * FROM patients ORDER BY created_at DESC';
+      // Build WHERE conditions
+      const whereConditions: string[] = [];
       const params: any[] = [];
+      let paramIndex = 1;
+
+      // Search functionality - search in first_name, last_name, and id
+      if (search && search.trim()) {
+        whereConditions.push(`(
+          LOWER(first_name) LIKE LOWER($${paramIndex}) OR 
+          LOWER(last_name) LIKE LOWER($${paramIndex}) OR
+          LOWER(CONCAT(first_name, ' ', last_name)) LIKE LOWER($${paramIndex}) OR
+          CAST(id AS TEXT) LIKE $${paramIndex}
+        )`);
+        params.push(`%${search.trim()}%`);
+        paramIndex++;
+      }
+
+      // Site filter
+      if (site && site.trim()) {
+        whereConditions.push(`site_name = $${paramIndex}`);
+        params.push(site.trim());
+        paramIndex++;
+      }
+
+      // Building filter
+      if (building && building.trim()) {
+        whereConditions.push(`building = $${paramIndex}`);
+        params.push(building.trim());
+        paramIndex++;
+      }
+
+      // Status filter
+      if (status && status !== 'all') {
+        if (status === 'active') {
+          whereConditions.push(`is_active = true`);
+        } else if (status === 'inactive') {
+          whereConditions.push(`is_active = false`);
+        }
+      }
+
+      // Build WHERE clause
+      const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+      // Get total count with filters
+      const countQuery = `SELECT COUNT(*) FROM patients ${whereClause}`;
+      const countResult = await pool.query(countQuery, params);
+      const total = parseInt(countResult.rows[0].count);
+
+      // Build ORDER BY clause
+      let orderByClause = 'ORDER BY created_at DESC'; // Default sorting
       
+      if (sortField && sortDirection) {
+        const validSortFields = {
+          'name': 'first_name', // Map 'name' to 'first_name' for sorting
+          'first_name': 'first_name',
+          'last_name': 'last_name',
+          'birthdate': 'birthdate',
+          'gender': 'gender',
+          'site_name': 'site_name',
+          'building': 'building',
+          'is_active': 'is_active',
+          'created_at': 'created_at'
+        };
+
+        const actualSortField = validSortFields[sortField];
+        if (actualSortField) {
+          const direction = sortDirection.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+          orderByClause = `ORDER BY ${actualSortField} ${direction}`;
+        }
+      }
+
+      // Build main query
+      let query = `SELECT * FROM patients ${whereClause} ${orderByClause}`;
+      
+      // Add pagination
       if (limit !== undefined && offset !== undefined) {
-        query += ' LIMIT $1 OFFSET $2';
+        query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
         params.push(limit, offset);
       }
-      
+
       const result = await pool.query(query, params);
       return { patients: result.rows, total };
     } catch (error) {
@@ -58,54 +134,125 @@ export class PatientsService {
     }
   }
 
-  async getPatientsByUserAccess(userId: number, limit?: number, offset?: number): Promise<{ patients: Patient[], total: number }> {
+  async getPatientsByUserAccess(
+    userId: number, 
+    limit?: number, 
+    offset?: number,
+    search?: string,
+    site?: string,
+    building?: string,
+    status?: string,
+    sortField?: string,
+    sortDirection?: 'asc' | 'desc'
+  ): Promise<{ patients: Patient[], total: number }> {
     try {
-      // Get total count
-      const countResult = await pool.query(
-        `
+      // Build WHERE conditions
+      const whereConditions: string[] = [];
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      // Always filter by user access first
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM users u
+        WHERE u.id = $${paramIndex}
+        AND (
+          p.site_id = u.primarysite_id
+          OR p.site_id = ANY(u.assignedsites_ids)
+        )
+      )`);
+      params.push(userId);
+      paramIndex++;
+
+      // Search functionality
+      if (search && search.trim()) {
+        whereConditions.push(`(
+          LOWER(p.first_name) LIKE LOWER($${paramIndex}) OR 
+          LOWER(p.last_name) LIKE LOWER($${paramIndex}) OR
+          LOWER(CONCAT(p.first_name, ' ', p.last_name)) LIKE LOWER($${paramIndex}) OR
+          CAST(p.id AS TEXT) LIKE $${paramIndex}
+        )`);
+        params.push(`%${search.trim()}%`);
+        paramIndex++;
+      }
+
+      // Site filter
+      if (site && site.trim()) {
+        whereConditions.push(`s.name = $${paramIndex}`);
+        params.push(site.trim());
+        paramIndex++;
+      }
+
+      // Building filter
+      if (building && building.trim()) {
+        whereConditions.push(`p.building = $${paramIndex}`);
+        params.push(building.trim());
+        paramIndex++;
+      }
+
+      // Status filter
+      if (status && status !== 'all') {
+        if (status === 'active') {
+          whereConditions.push(`p.is_active = true`);
+        } else if (status === 'inactive') {
+          whereConditions.push(`p.is_active = false`);
+        }
+      }
+
+      // Build WHERE clause
+      const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+
+      // Get total count with filters
+      const countQuery = `
         SELECT COUNT(*) 
         FROM patients p
         LEFT JOIN sites s ON p.site_id = s.id
-        WHERE EXISTS (
-          SELECT 1 FROM users u
-          WHERE u.id = $1
-          AND (
-            p.site_id = u.primarysite_id
-            OR p.site_id = ANY(u.assignedsites_ids)
-          )
-        )
-      `,
-        [userId]
-      );
+        ${whereClause}
+      `;
+      const countResult = await pool.query(countQuery, params);
       const total = parseInt(countResult.rows[0].count);
+
+      // Build ORDER BY clause
+      let orderByClause = 'ORDER BY p.created_at DESC'; // Default sorting
       
-      // Get paginated results
+      if (sortField && sortDirection) {
+        const validSortFields = {
+          'name': 'p.first_name',
+          'first_name': 'p.first_name',
+          'last_name': 'p.last_name',
+          'birthdate': 'p.birthdate',
+          'gender': 'p.gender',
+          'site_name': 's.name',
+          'building': 'p.building',
+          'is_active': 'p.is_active',
+          'created_at': 'p.created_at'
+        };
+
+        const actualSortField = validSortFields[sortField];
+        if (actualSortField) {
+          const direction = sortDirection.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+          orderByClause = `ORDER BY ${actualSortField} ${direction}`;
+        }
+      }
+
+      // Build main query
       let query = `
         SELECT p.*, s.name as site_name
         FROM patients p
         LEFT JOIN sites s ON p.site_id = s.id
-        WHERE EXISTS (
-          SELECT 1 FROM users u
-          WHERE u.id = $1
-          AND (
-            p.site_id = u.primarysite_id
-            OR p.site_id = ANY(u.assignedsites_ids)
-          )
-        )
-        ORDER BY p.created_at DESC
+        ${whereClause}
+        ${orderByClause}
       `;
       
-      const params: any[] = [userId];
-      
+      // Add pagination
       if (limit !== undefined && offset !== undefined) {
-        query += ' LIMIT $2 OFFSET $3';
+        query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
         params.push(limit, offset);
       }
-      
+
       const result = await pool.query(query, params);
       return { patients: result.rows, total };
     } catch (error) {
-      throw new Error(`Failed to fetch patients for user access: ${error.message}`);
+      throw new Error(`Failed to fetch patients by user access: ${error.message}`);
     }
   }
 

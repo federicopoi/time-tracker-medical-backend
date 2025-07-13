@@ -37,23 +37,68 @@ export class PatientsController {
   }
 
   @Get()
-  async getPatients(@Request() req, @Query('page') page?: string, @Query('limit') limit?: string) {
+  async getPatients(
+    @Request() req, 
+    @Query('page') page?: string, 
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('site') site?: string,
+    @Query('building') building?: string,
+    @Query('status') status?: string,
+    @Query('sortField') sortField?: string,
+    @Query('sortDirection') sortDirection?: 'asc' | 'desc'
+  ) {
     try {
       const userId = parseInt(req.user.sub);
       const userRole = req.user.role;
 
       // Parse pagination parameters
       const pageNum = page ? parseInt(page) : 1;
-      const limitNum = limit ? parseInt(limit) : 50; // Default to 50 items per page
+      const limitNum = limit ? parseInt(limit) : 50;
       const offset = (pageNum - 1) * limitNum;
 
-      // If user is admin, get all patients with pagination
+      // If user is admin, get all patients with filters
       if (userRole === "admin") {
-        return await this.patientsService.getPatients(limitNum, offset);
+        const result = await this.patientsService.getPatients(
+          limitNum, 
+          offset,
+          search,
+          site,
+          building,
+          status,
+          sortField,
+          sortDirection
+        );
+        
+        return {
+          patients: result.patients,
+          total: result.total,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: Math.ceil(result.total / limitNum)
+        };
       }
 
-      // For non-admin users, get only patients from their assigned sites with pagination
-      return await this.patientsService.getPatientsByUserAccess(userId, limitNum, offset);
+      // For non-admin users, get only patients from their assigned sites with filters
+      const result = await this.patientsService.getPatientsByUserAccess(
+        userId, 
+        limitNum, 
+        offset,
+        search,
+        site,
+        building,
+        status,
+        sortField,
+        sortDirection
+      );
+      
+      return {
+        patients: result.patients,
+        total: result.total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(result.total / limitNum)
+      };
     } catch (error) {
       throw new HttpException(
         "Failed to fetch patients",
