@@ -13,6 +13,7 @@ async function bootstrap() {
     origin: [
       "http://localhost:5173",
       "https://time-tracker-medical.vercel.app",
+      "https://helpful-marigold-200840.netlify.app/login",
       /https:\/\/time-tracker-medical-.*\.vercel\.app$/
     ],
     credentials: true,
