@@ -44,10 +44,15 @@ export class AuthGuard implements CanActivate {
     const isSafari = userAgent.includes('Safari') && !userAgent.includes('Chrome');
     
     if (isSafari) {
-      console.log('Safari detected - checking cookies:', {
+      console.log('🔍 Safari request debug:', {
+        url: request.url,
+        method: request.method,
         cookies: request.cookies,
         hasAuthToken: request.cookies && request.cookies['auth_token'],
-        headers: request.headers
+        cookieHeader: request.headers.cookie,
+        origin: request.headers.origin,
+        referer: request.headers.referer,
+        userAgent: userAgent
       });
     }
     
@@ -55,6 +60,21 @@ export class AuthGuard implements CanActivate {
     if (request.cookies && request.cookies['auth_token']) {
       return request.cookies['auth_token'];
     }
+    
+    // Check raw cookie header for Safari
+    if (isSafari && request.headers.cookie) {
+      const cookies = request.headers.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      if (cookies.auth_token) {
+        console.log('✅ Safari: Found auth_token in raw cookie header');
+        return cookies.auth_token;
+      }
+    }
+    
     // Fallback to Authorization header
     const [type, token] = request.headers.authorization?.split(" ") ?? [];
     return type === "Bearer" ? token : undefined;
