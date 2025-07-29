@@ -24,22 +24,20 @@ export class AuthController {
     
     // Set JWT as HttpOnly, Secure cookie with Safari compatibility
     const isProduction = process.env.NODE_ENV === 'production';
+    const origin = res.req.headers.origin;
+    
+    // Safari requires secure=true when sameSite=none, regardless of environment
+    const isSecureContext = isProduction || (origin && origin.startsWith('https://'));
+    
+    // Safari-specific cookie handling
     const cookieOptions = {
       httpOnly: true,
-      secure: isProduction, // Only secure in production
-      sameSite: isProduction ? 'none' : 'lax', // Use 'lax' for dev, 'none' for prod
+      secure: isSecureContext, // Must be true for sameSite=none in Safari
+      sameSite: isSecureContext ? 'none' : 'lax', // Safari strict requirements
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: '/',
+      domain: isProduction ? undefined : undefined, // Let browser set domain
     };
-
-    // Add domain for production to help Safari
-    if (isProduction) {
-      const origin = res.req.headers.origin;
-      if (origin && (origin.includes('vercel.app') || origin.includes('netlify.app'))) {
-        // For cross-origin requests, don't set domain
-        cookieOptions.domain = undefined;
-      }
-    }
 
     res.cookie('auth_token', result.access_token, cookieOptions);
     
@@ -51,10 +49,13 @@ export class AuthController {
   async logout(@Response() res): Promise<void> {
     // Clear the cookie with the same settings used to set it
     const isProduction = process.env.NODE_ENV === 'production';
+    const origin = res.req.headers.origin;
+    const isSecureContext = isProduction || (origin && origin.startsWith('https://'));
+    
     const clearOptions = {
       httpOnly: true,
-      secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
+      secure: isSecureContext,
+      sameSite: isSecureContext ? 'none' : 'lax',
       path: '/',
     };
 

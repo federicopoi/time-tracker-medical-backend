@@ -18,9 +18,11 @@ async function bootstrap() {
     ],
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'X-Requested-With', 'Origin'],
     exposedHeaders: ['Set-Cookie'],
     maxAge: 86400,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
   const port = process.env.PORT || 3000;
   console.log(`Application is running on port ${port}`);
