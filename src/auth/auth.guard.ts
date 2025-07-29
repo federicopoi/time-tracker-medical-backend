@@ -39,6 +39,18 @@ export class AuthGuard implements CanActivate {
   }
 
   private extractTokenFromCookieOrHeader(request: Request): string | undefined {
+    // Debug Safari cookie issues
+    const userAgent = request.headers['user-agent'] || '';
+    const isSafari = userAgent.includes('Safari') && !userAgent.includes('Chrome');
+    
+    if (isSafari) {
+      console.log('Safari detected - checking cookies:', {
+        cookies: request.cookies,
+        hasAuthToken: request.cookies && request.cookies['auth_token'],
+        headers: request.headers
+      });
+    }
+    
     // Prefer cookie
     if (request.cookies && request.cookies['auth_token']) {
       return request.cookies['auth_token'];

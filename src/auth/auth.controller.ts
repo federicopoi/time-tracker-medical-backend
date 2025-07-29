@@ -29,14 +29,14 @@ export class AuthController {
     // Safari requires secure=true when sameSite=none, regardless of environment
     const isSecureContext = isProduction || (origin && origin.startsWith('https://'));
     
-    // Safari-specific cookie handling
+    // Safari-specific cookie handling - more permissive for cross-domain
     const cookieOptions = {
       httpOnly: true,
       secure: isSecureContext, // Must be true for sameSite=none in Safari
-      sameSite: isSecureContext ? 'none' : 'lax', // Safari strict requirements
+      sameSite: 'none', // Safari needs this for cross-domain
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: '/',
-      domain: isProduction ? undefined : undefined, // Let browser set domain
+      // Don't set domain - let browser handle cross-domain cookies
     };
 
     res.cookie('auth_token', result.access_token, cookieOptions);
@@ -55,7 +55,7 @@ export class AuthController {
     const clearOptions = {
       httpOnly: true,
       secure: isSecureContext,
-      sameSite: isSecureContext ? 'none' : 'lax',
+      sameSite: 'none', // Match the login cookie settings
       path: '/',
     };
 
