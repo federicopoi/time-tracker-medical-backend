@@ -10,15 +10,36 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: [
-      "http://localhost:5173",
-      "https://time-tracker-medical.vercel.app",
-      "https://helpful-marigold-200840.netlify.app",
-      /https:\/\/time-tracker-medical-.*\.vercel\.app$/
-    ],
+    origin: function (origin, callback) {
+      const allowedOrigins = [
+        "http://localhost:5173",
+        "https://time-tracker-medical.vercel.app",
+        "https://helpful-marigold-200840.netlify.app"
+      ];
+      
+      // Allow Vercel preview deployments
+      if (origin && origin.match(/https:\/\/time-tracker-medical-.*\.vercel\.app$/)) {
+        return callback(null, true);
+      }
+      
+      // Allow listed origins or no origin (for mobile apps, Postman, etc.)
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'X-Requested-With', 'Origin', 'Cookie'],
+    allowedHeaders: [
+      'Content-Type', 
+      'Accept', 
+      'Authorization', 
+      'X-Requested-With', 
+      'Origin', 
+      'Cookie',
+      'Access-Control-Allow-Credentials'
+    ],
     exposedHeaders: ['Set-Cookie'],
     maxAge: 86400,
     preflightContinue: false,

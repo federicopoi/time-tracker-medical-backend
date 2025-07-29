@@ -32,12 +32,16 @@ export class AuthController {
     // Safari-specific cookie handling - more permissive for cross-domain
     const cookieOptions = {
       httpOnly: true,
-      secure: isSecureContext, // Must be true for sameSite=none in Safari
-      sameSite: 'none', // Safari needs this for cross-domain
+      secure: true, // Always true for cross-origin (required by Safari)
+      sameSite: 'none' as const, // Safari needs this for cross-domain
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: '/',
       // Don't set domain - let browser handle cross-domain cookies
     };
+
+    // Additional Safari compatibility headers
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', origin || 'https://time-tracker-medical.vercel.app');
 
     res.cookie('auth_token', result.access_token, cookieOptions);
     
@@ -54,10 +58,14 @@ export class AuthController {
     
     const clearOptions = {
       httpOnly: true,
-      secure: isSecureContext,
-      sameSite: 'none', // Match the login cookie settings
+      secure: true, // Always true for cross-origin (required by Safari)
+      sameSite: 'none' as const, // Match the login cookie settings
       path: '/',
     };
+
+    // Additional Safari compatibility headers
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', origin || 'https://time-tracker-medical.vercel.app');
 
     res.clearCookie('auth_token', clearOptions);
     res.status(200).json({ message: 'Logged out' });
