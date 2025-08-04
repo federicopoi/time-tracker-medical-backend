@@ -36,7 +36,7 @@ export class AuthController {
       sameSite: 'none' as const, // Safari needs this for cross-domain
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: '/',
-      domain: isProduction ? '.railway.app' : undefined, // Set domain for cross-subdomain
+      // Don't set domain - let browser handle cross-domain cookies naturally
     };
 
     // Additional Safari compatibility headers
@@ -78,5 +78,32 @@ export class AuthController {
   @Get("profile")
   getProfile(@Request() req) {
     return req.user;
+  }
+
+  @Get("test")
+  async testAuth(@Request() req, @Response() res) {
+    const userAgent = req.headers['user-agent'] || '';
+    const isSafari = userAgent.includes('Safari') && !userAgent.includes('Chrome');
+    
+    console.log('Test endpoint called:', {
+      url: req.url,
+      method: req.method,
+      userAgent: userAgent,
+      isSafari: isSafari,
+      cookies: req.cookies,
+      cookieHeader: req.headers.cookie,
+      authorizationHeader: req.headers.authorization,
+      origin: req.headers.origin,
+    });
+    
+    res.json({
+      message: 'Test endpoint working',
+      isSafari: isSafari,
+      hasCookies: !!req.cookies,
+      hasAuthToken: req.cookies && !!req.cookies['auth_token'],
+      hasAuthorization: !!req.headers.authorization,
+      cookies: req.cookies,
+      cookieHeader: req.headers.cookie,
+    });
   }
 }
