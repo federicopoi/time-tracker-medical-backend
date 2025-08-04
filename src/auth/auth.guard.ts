@@ -75,8 +75,13 @@ export class AuthGuard implements CanActivate {
       }
     }
     
-    // Fallback to Authorization header
+    // Fallback to Authorization header (for sessionStorage tokens)
     const [type, token] = request.headers.authorization?.split(" ") ?? [];
-    return type === "Bearer" ? token : undefined;
+    if (type === "Bearer" && token) {
+      console.log('✅ Using Bearer token from Authorization header');
+      return token;
+    }
+    
+    return undefined;
   }
 }

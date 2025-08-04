@@ -36,7 +36,7 @@ export class AuthController {
       sameSite: 'none' as const, // Safari needs this for cross-domain
       maxAge: 24 * 60 * 60 * 1000, // 1 day
       path: '/',
-      // Don't set domain - let browser handle cross-domain cookies
+      domain: isProduction ? '.railway.app' : undefined, // Set domain for cross-subdomain
     };
 
     // Additional Safari compatibility headers
@@ -45,8 +45,11 @@ export class AuthController {
 
     res.cookie('auth_token', result.access_token, cookieOptions);
     
-    // Return user info only (no token)
-    res.json({ user: result.user });
+    // Return both user info and token for Safari compatibility
+    res.json({ 
+      user: result.user,
+      access_token: result.access_token // Include token for sessionStorage
+    });
   }
 
   @Post("logout")
